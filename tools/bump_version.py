@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import pathlib
-import re
 import sys
 
 VERSION_FILE = pathlib.Path(__file__).parent.parent / "VERSION"
+
 
 def bump(part: str) -> str:
     version = VERSION_FILE.read_text(encoding="utf-8").strip()
@@ -23,6 +23,7 @@ def bump(part: str) -> str:
     VERSION_FILE.write_text(new_version, encoding="utf-8")
     return new_version
 
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: bump_version.py [major|minor|patch]")
@@ -34,4 +35,3 @@ if __name__ == "__main__":
         print(e)
         sys.exit(1)
     print(f"Bumped version to {new_ver}")
-
