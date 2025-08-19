@@ -1,0 +1,1 @@
+__pycache__/\n*.pyc\n.venv/\n*.log\n/media/*\n!/media/idle/\n!/media/events/\n!/media/random/\n/playlists/*\n!/playlists/current.m3u\n

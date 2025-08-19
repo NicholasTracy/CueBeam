@@ -1,0 +1,37 @@
+idle_to_random_seconds: 60
+daily_shutdown_time: "23:30"
+audio_output_device: ""
+mpv_flags:
+  - "--no-osd-bar"
+  - "--really-quiet"
+  - "--fullscreen"
+  - "--no-terminal"
+  - "--loop-file=no"
+  - "--gapless-audio"
+  - "--keep-open=no"
+  - "--force-window=no"
+trigger_source: "gpio"
+gpio:
+  pin: 17
+  pull: "up"
+  edge: "falling"
+  debounce_ms: 50
+artnet:
+  listen_host: "0.0.0.0"
+  port: 6454
+  universe: 0
+  channel: 1
+  threshold: 128
+sacn:
+  universe: 1
+  channel: 1
+  threshold: 128
+auth:
+  enabled: true
+  password_hash: ""
+  cookie_secret: "change-me-32bytes-min"
+  cookie_name: "cuebeam_session"
+  session_ttl_minutes: 1440
+bluetooth:
+  preferred_mac: ""
+  scan_seconds: 8
