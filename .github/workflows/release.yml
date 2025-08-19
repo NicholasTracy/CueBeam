@@ -1,0 +1,64 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.1.0)'
+        required: true
+      notes_mode:
+        description: 'auto | file'
+        required: false
+        default: 'auto'
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build archive
+        run: |
+          zip -r CueBeam.zip . -x "*.git*" -x "__pycache__/*" -x "*.pyc"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuebeam-zip
+          path: CueBeam.zip
+
+      - name: Prepare release notes (file mode)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.notes_mode == 'file' }}
+        run: |
+          if [ ! -f RELEASE_NOTES.md ]; then
+            echo "RELEASE_NOTES.md not found. Falling back to auto notes." > RELEASE_NOTES.md
+          fi
+
+      - name: Create GitHub Release (auto notes)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.notes_mode != 'file' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CueBeam.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (file notes)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.notes_mode == 'file' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: CueBeam.zip
+          body_path: RELEASE_NOTES.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

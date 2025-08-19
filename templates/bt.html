@@ -1,1 +1,24 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Bluetooth • CueBeam</title><link href='/static/style.css' rel='stylesheet'></head><body><h1>Bluetooth</h1><h2>Discovered</h2><ul>{% for mac, name in devices %}<li>{{ name }} ({{ mac }})<form method='post' action='/bt/connect' style='display:inline'><input type='hidden' name='mac' value='{{ mac }}'><label><input type='checkbox' name='save_as_preferred'> Save as preferred</label><button type='submit'>Pair & Connect</button></form></li>{% endfor %}</ul><h2>Paired</h2><ul>{% for mac, name in paired %}<li>{{ name }} ({{ mac }}) {% if preferred == mac %} • Preferred{% endif %}</li>{% endfor %}</ul><p><a href='/settings'>Back</a></p></body></html>
+<!doctype html><html><head><meta charset='utf-8'><title>Bluetooth • CueBeam</title><link href='/static/style.css' rel='stylesheet'></head>
+<body>
+<h1>Bluetooth</h1>
+<h2>Discovered</h2>
+<ul>
+  {% for mac, name in devices %}
+    <li>{{ name }} ({{ mac }})
+      <form method='post' action='/bt/connect' style='display:inline'>
+        <input type='hidden' name='mac' value='{{ mac }}'>
+        <label><input type='checkbox' name='save_as_preferred'> Save as preferred</label>
+        <button type='submit'>Pair & Connect</button>
+      </form>
+    </li>
+  {% endfor %}
+</ul>
+
+<h2>Paired</h2>
+<ul>
+  {% for mac, name in paired %}
+    <li>{{ name }} ({{ mac }}) {% if preferred == mac %} • Preferred{% endif %}</li>
+  {% endfor %}
+</ul>
+<p><a href='/settings'>Back</a></p>
+</body></html>

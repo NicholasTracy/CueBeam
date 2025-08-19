@@ -1,1 +1,54 @@
-<!doctype html><html><head><meta charset='utf-8'><title>CueBeam</title><link href='/static/style.css' rel='stylesheet'></head><body><h1>CueBeam</h1><div class='card'><form method='post' action='/action' class='flex'><button name='cmd' value='pause'>Play/Pause</button><button name='cmd' value='skip'>Skip</button><button name='cmd' value='trigger_event'>Trigger Event</button><button name='cmd' value='trigger_random'>Play Random</button><button name='cmd' value='shutdown'>Shutdown Pi</button><button name='cmd' value='reboot'>Reboot Pi</button></form></div><div class='card'><h2>Upload Media</h2><form method='post' action='/upload' enctype='multipart/form-data' class='flex'><select name='target'><option value='idle'>Idle</option><option value='events'>Events</option><option value='random'>Random</option></select><input type='file' name='file' required><button type='submit'>Upload</button></form></div><p class='flex'><a href='/settings'>Settings</a><a href='/bt/list'>Bluetooth</a><a href='/logs'>Logs</a><form method='post' action='/logout' style='display:inline'><button>Logout</button></form></p><div class='card'><h2>Live Status</h2><pre id='status'>connecting...</pre></div><script>(function(){function k(){var l=window.location,p=l.protocol==='https:'?'wss://':'ws://';var w=new WebSocket(p+l.host+'/ws/status');var e=document.getElementById('status');w.onopen=function(){e.textContent='connected'};w.onmessage=function(v){try{e.textContent=JSON.stringify(JSON.parse(v.data),null,2)}catch(_){e.textContent=v.data}};w.onclose=function(){e.textContent='disconnected; retrying...';setTimeout(k,1500)};w.onerror=function(){w.close()}}k()})();</script></body></html>
+<!doctype html><html><head><meta charset='utf-8'><title>CueBeam</title><link href='/static/style.css' rel='stylesheet'></head>
+<body>
+<h1>CueBeam</h1>
+<div class='card'>
+  <form method='post' action='/action' class='flex'>
+    <button name='cmd' value='pause'>Play/Pause</button>
+    <button name='cmd' value='skip'>Skip</button>
+    <button name='cmd' value='trigger_event'>Trigger Event</button>
+    <button name='cmd' value='trigger_random'>Play Random</button>
+    <button name='cmd' value='shutdown'>Shutdown Pi</button>
+    <button name='cmd' value='reboot'>Reboot Pi</button>
+  </form>
+</div>
+<div class='card'>
+  <h2>Upload Media</h2>
+  <form method='post' action='/upload' enctype='multipart/form-data' class='flex'>
+    <select name='target'>
+      <option value='idle'>Idle</option>
+      <option value='events'>Events</option>
+      <option value='random'>Random</option>
+    </select>
+    <input type='file' name='file' required>
+    <button type='submit'>Upload</button>
+  </form>
+</div>
+<p class='flex'>
+  <a href='/settings'>Settings</a>
+  <a href='/bt/list'>Bluetooth</a>
+  <a href='/logs'>Logs</a>
+  <form method='post' action='/logout' style='display:inline'><button>Logout</button></form>
+</p>
+<div class='card'>
+  <h2>Live Status</h2>
+  <pre id='status'>connecting...</pre>
+</div>
+<script>
+(function(){
+  function connect(){
+    var l=window.location;
+    var p=l.protocol==='https:'?'wss://':'ws://';
+    var w=new WebSocket(p+l.host+'/ws/status');
+    var e=document.getElementById('status');
+    w.onopen=function(){e.textContent='connected'};
+    w.onmessage=function(v){
+      try{e.textContent=JSON.stringify(JSON.parse(v.data),null,2)}
+      catch(_){e.textContent=v.data}
+    };
+    w.onclose=function(){e.textContent='disconnected; retrying...'; setTimeout(connect,1500)};
+    w.onerror=function(){w.close()};
+  }
+  connect();
+})();
+</script>
+</body></html>
