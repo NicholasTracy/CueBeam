@@ -35,4 +35,3 @@ if __name__ == "__main__":
         print(e)
         sys.exit(1)
     print(f"Bumped version to {new_ver}")
-    
