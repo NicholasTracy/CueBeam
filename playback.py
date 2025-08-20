@@ -50,14 +50,14 @@ class PlaybackManager:
             key = key.lstrip("-").replace("-", "_")
             try:
                 if val:
-                    v = val
-                    if v.isdigit():
-                        v = int(v)
-                    elif v.lower() in ("yes", "true", "on"):
-                        v = "yes"
-                    elif v.lower() in ("no", "false", "off"):
-                        v = "no"
-                    self.mpv.command("set", key, v)
+                    v_obj: object = val
+                    if val.isdigit():
+                        v_obj = int(val)
+                    elif val.lower() in ("yes", "true", "on"):
+                        v_obj = "yes"
+                    elif val.lower() in ("no", "false", "off"):
+                        v_obj = "no"
+                    self.mpv.command("set", key, v_obj)
                 else:
                     self.mpv.command("set", key, "yes")
             except Exception:
