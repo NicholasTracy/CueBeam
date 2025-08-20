@@ -16,7 +16,7 @@ sudo apt install -y python3 python3-venv python3-dev git mpv ffmpeg \
 
 # 3. Clone or update repo
 if [ ! -d "$APP_DIR" ]; then
-    git clone https://github.com/<your-username>/CueBeam.git "$APP_DIR"
+    git clone https://github.com/NicholasTracy/CueBeam.git "$APP_DIR"
 else
     cd "$APP_DIR"
     git pull
