@@ -10,4 +10,3 @@
 - WebSocket `/ws/status` live status feed
 - Bluetooth scan, pair/trust/connect and preferred device auto-connect
 - GPIO / Art-Net / sACN triggers with thresholds and debounce
-

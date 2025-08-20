@@ -3,7 +3,7 @@
 [![CI](https://github.com/<your-username>/CueBeam/actions/workflows/python-app.yml/badge.svg)](https://github.com/<your-username>/CueBeam/actions/workflows/python-app.yml)
 [![pre-commit](https://github.com/<your-username>/CueBeam/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/<your-username>/CueBeam/actions/workflows/pre-commit.yml)
 
-CueBeam is a lightweight **media cue playback system** designed for **Raspberry Pi** (and other Linux SBCs) that gives you gapless, automated video playback with a simple **web interface**. 
+CueBeam is a lightweight **media cue playback system** designed for **Raspberry Pi** (and other Linux SBCs) that gives you gapless, automated video playback with a simple **web interface**.
 
 Think of it as a remote-controlled, always-on media player appliance — ideal for events, kiosks, installations, or stage productions.
 
@@ -33,7 +33,7 @@ Think of it as a remote-controlled, always-on media player appliance — ideal f
   sudo apt install -y python3 python3-venv python3-dev git mpv ffmpeg \
                       bluetooth bluez bluez-tools
   ```
-- (Optional, for GPIO)  
+- (Optional, for GPIO)
   ```bash
   sudo apt install -y python3-rpi.gpio python3-gpiozero
   ```
@@ -59,7 +59,7 @@ pip install -r requirements.txt
 uvicorn asgi:app --host 0.0.0.0 --port 8080
 ```
 
-Then open a browser to:  
+Then open a browser to:
 👉 `http://<pi-ip-address>:8080`
 
 ---
@@ -138,7 +138,7 @@ pytest
 
 ## 📡 API (FastAPI)
 
-Once running, explore the interactive API docs at:  
+Once running, explore the interactive API docs at:
 👉 `http://<pi-ip>:8080/docs`
 
 ---
