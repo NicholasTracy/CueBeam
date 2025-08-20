@@ -1,11 +1,26 @@
 <!doctype html><html><head>
 <meta charset="utf-8"><title>CueBeam</title>
 <link rel="stylesheet" href="/static/style.css">
-<style>.toast{position:fixed;right:1rem;top:1rem;padding:.6rem .9rem;border-radius:.4rem;box-shadow:0 2px 8px rgba(0,0,0,.2);background:#e8ffe8;border:1px solid #9ed39e;display:none}.toast.error{background:#ffe8e8;border-color:#d39e9e}</style>
+<style>.toast{position:fixed;right:1rem;top:1rem;padding:.6rem .9rem;border-radius:.4rem;box-shadow:0 2px 8px rgba(0,0,0,.2);background:#e8ffe8;border:1px solid #9ed39e;display:none}.toast.error{background:#ffe8e8;border-color:#d39e9e}.card{border:1px solid #ddd;border-radius:.5rem;padding:1rem;margin:.75rem 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}</style>
 </head><body data-msg="{{ request.query_params.get('msg','') }}">
 <div id="toast" class="toast"></div>
 <h1>CueBeam</h1>
-<div id="status">connecting…</div>
+
+<div class="card">
+  <h3>Now Playing</h3>
+  <div id="np">—</div>
+</div>
+
+<div class="card">
+  <h3>System</h3>
+  <div id="sys">loading…</div>
+</div>
+
+<div class="card">
+  <h3>Status</h3>
+  <div id="status">connecting…</div>
+</div>
+
 <form method="post" action="/action">
   <button name="cmd" value="pause">Pause/Resume</button>
   <button name="cmd" value="skip">Skip</button>
@@ -14,6 +29,7 @@
   <button name="cmd" value="shutdown" onclick="return confirm('Shutdown Pi?')">Shutdown</button>
   <button name="cmd" value="reboot" onclick="return confirm('Reboot Pi?')">Reboot</button>
 </form>
+
 <h2>Upload</h2>
 <form method="post" action="/upload" enctype="multipart/form-data">
   <input type="file" name="file" required>
@@ -24,16 +40,47 @@
   </select>
   <button type="submit">Upload</button>
 </form>
+
 <p><a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> | <a href="/logs">Logs</a></p>
+
 <script>
+function humanUptime(s){
+  s = Math.floor(s||0);
+  const d = Math.floor(s/86400); s%=86400;
+  const h = Math.floor(s/3600); s%=3600;
+  const m = Math.floor(s/60);
+  const parts=[];
+  if(d) parts.push(d+'d'); if(h) parts.push(h+'h'); if(m) parts.push(m+'m');
+  return parts.join(' ')||'0m';
+}
+
 const el = document.getElementById('status');
-function render(s){ el.textContent = JSON.stringify(s); }
-function fallback(){ fetch('/api/status').then(r=>r.json()).then(render).catch(()=>{el.textContent='status error'}); }
+const np = document.getElementById('np');
+const sys = document.getElementById('sys');
+function renderStatus(s){
+  el.textContent = JSON.stringify(s);
+  const name = s.current_basename || '(none)';
+  const cat = s.current_category || '-';
+  np.textContent = name + (cat ? '  ['+cat+']' : '');
+}
+function renderSysinfo(j){
+  const ips = (j.ips||[]).join(' · ');
+  const temp = (j.cpu_temp_c!=null)? (j.cpu_temp_c + '°C') : 'n/a';
+  sys.textContent = `Host: ${j.hostname}   IPs: ${ips}   Uptime: ${humanUptime(j.uptime_s)}   CPU: ${temp}`;
+}
+
+function fallback(){
+  fetch('/api/status').then(r=>r.json()).then(renderStatus).catch(()=>{el.textContent='status error'});
+}
 try {
   const ws = new WebSocket(`ws://${location.host}/ws/status`);
-  ws.onmessage = (e)=>render(JSON.parse(e.data));
+  ws.onmessage = (e)=>renderStatus(JSON.parse(e.data));
   ws.onerror = fallback; ws.onclose = fallback;
 } catch { fallback(); }
+
+function getSys(){ fetch('/api/sysinfo').then(r=>r.json()).then(renderSysinfo).catch(()=>{}); }
+getSys(); setInterval(getSys, 5000);
+
 const msg = document.body.dataset.msg;
 if(msg){
   const t = document.getElementById('toast');

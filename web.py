@@ -1,6 +1,8 @@
 import asyncio
 import secrets
 import shutil
+import socket
+import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Callable
 
@@ -22,6 +24,7 @@ env = Environment(
     autoescape=select_autoescape(["html", "xml"]),
 )
 
+
 def _require_auth(cfg: Dict[str, Any]) -> Callable:
     a = cfg.get("auth") or {}
     enabled = bool(a.get("enabled"))
@@ -33,9 +36,35 @@ def _require_auth(cfg: Dict[str, Any]) -> Callable:
             return
         token = request.cookies.get(cookie_name)
         if not token or (secret and token != secret):
-            # redirect to login
             raise RedirectResponse("/login")
     return _dep
+
+
+def _sysinfo() -> Dict[str, Any]:
+    try:
+        ips = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, text=True, check=False).stdout.strip().split()
+    except Exception:
+        ips = []
+    up = 0.0
+    try:
+        with open("/proc/uptime", "r") as f:
+            up = float(f.read().split()[0])
+    except Exception:
+        pass
+    try:
+        hn = socket.gethostname()
+    except Exception:
+        hn = "unknown"
+    ctemp = None
+    for p in (Path("/sys/class/thermal/thermal_zone0/temp"),):
+        try:
+            if p.exists():
+                ctemp = round(int(p.read_text().strip()) / 1000.0, 1)
+                break
+        except Exception:
+            pass
+    return {"hostname": hn, "ips": ips, "uptime_s": up, "cpu_temp_c": ctemp}
+
 
 def make_app(manager: PlaybackManager) -> FastAPI:
     templates = env
@@ -44,17 +73,17 @@ def make_app(manager: PlaybackManager) -> FastAPI:
 
     require_auth = _require_auth(manager.cfg)
 
-    # pages
-
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request):
         tpl = templates.get_template("index.html")
-        return HTMLResponse(tpl.render(request=request))
+        html = tpl.render(request=request)
+        return HTMLResponse(html)
 
     @app.get("/settings", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
     async def settings(request: Request):
         tpl = templates.get_template("settings.html")
-        return HTMLResponse(tpl.render(request=request, cfg=manager.cfg))
+        html = tpl.render(request=request, cfg=manager.cfg)
+        return HTMLResponse(html)
 
     @app.post("/settings/update", dependencies=[Depends(require_auth)])
     async def settings_update(
@@ -69,7 +98,6 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         artnet_universe: int = Form(0),
         artnet_channel: int = Form(1),
         artnet_threshold: int = Form(128),
-        sact=Form(""),
         sacn_universe: int = Form(1),
         sacn_channel: int = Form(1),
         sacn_threshold: int = Form(128),
@@ -84,16 +112,35 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         cfg["daily_shutdown_time"] = (daily_shutdown_time or "").strip()
         cfg["audio_output_device"] = (audio_output_device or "").strip()
         cfg["trigger_source"] = (trigger_source or "gpio").lower()
-        cfg["gpio"] = {"pin": int(gpio_pin), "pull": gpio_pull, "edge": gpio_edge, "debounce_ms": int(gpio_db_ms)}
-        cfg["artnet"] = {"listen_host": "0.0.0.0", "port": 6454, "universe": int(artnet_universe), "channel": int(artnet_channel), "threshold": int(artnet_threshold)}
-        cfg["sacn"] = {"universe": int(sacn_universe), "channel": int(sacn_channel), "threshold": int(sacn_threshold)}
-        cfg["bluetooth"] = {"preferred_mac": preferred_mac.strip(), "scan_seconds": int(bt_scan_seconds)}
+        cfg["gpio"] = {
+            "pin": int(gpio_pin),
+            "pull": gpio_pull,
+            "edge": gpio_edge,
+            "debounce_ms": int(gpio_db_ms),
+        }
+        cfg["artnet"] = {
+            "listen_host": "0.0.0.0",
+            "port": 6454,
+            "universe": int(artnet_universe),
+            "channel": int(artnet_channel),
+            "threshold": int(artnet_threshold),
+        }
+        cfg["sacn"] = {
+            "universe": int(sacn_universe),
+            "channel": int(sacn_channel),
+            "threshold": int(sacn_threshold),
+        }
+        cfg["bluetooth"] = {
+            "preferred_mac": preferred_mac.strip(),
+            "scan_seconds": int(bt_scan_seconds),
+        }
         cfg["auth"] = cfg.get("auth") or {}
         cfg["auth"]["enabled"] = bool(auth_enabled_f)
         if cfg["auth"]["enabled"] and auth_password:
             cfg["auth"]["cookie_secret"] = auth_password
         if cfg["auth"]["enabled"] and not cfg["auth"].get("cookie_secret"):
             cfg["auth"]["cookie_secret"] = secrets.token_urlsafe(32)
+
         CONFIG_PATH.write_text(yaml.safe_dump(cfg), encoding="utf-8")
         manager.reload_config()
         return RedirectResponse("/settings", status_code=303)
@@ -101,7 +148,8 @@ def make_app(manager: PlaybackManager) -> FastAPI:
     @app.get("/login", response_class=HTMLResponse)
     async def login_page(request: Request):
         tpl = templates.get_template("login.html")
-        return HTMLResponse(tpl.render(request=request))
+        html = tpl.render(request=request)
+        return HTMLResponse(html)
 
     @app.post("/login")
     async def login(request: Request, password: str = Form(...)) -> RedirectResponse:
@@ -114,8 +162,6 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         if secret and password == secret:
             resp.set_cookie(cookie_name, secret, httponly=True, samesite="lax", secure=False)
         return resp
-
-    # actions
 
     @app.post("/action", dependencies=[Depends(require_auth)])
     async def action(cmd: str = Form(...)) -> RedirectResponse:
@@ -148,11 +194,13 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         except Exception:
             return RedirectResponse("/?msg=upload_failed", status_code=303)
 
-    # status API + websocket
-
     @app.get("/api/status")
     async def api_status() -> JSONResponse:
         return JSONResponse(manager.status())
+
+    @app.get("/api/sysinfo")
+    async def api_sysinfo() -> JSONResponse:
+        return JSONResponse(_sysinfo())
 
     @app.websocket("/ws/status")
     async def ws_status(ws: WebSocket) -> None:
@@ -164,17 +212,15 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         except Exception:
             return
 
-    # bluetooth pages
-
     @app.get("/bt/list", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
     async def bt_list(request: Request):
         tpl = templates.get_template("bt.html")
-        # for static display; JSON endpoints do the live scan/connect
         try:
-            paired = scan(2)  # quick pass-through (best-effort)
+            paired = scan(2)
         except Exception:
             paired = []
-        return HTMLResponse(tpl.render(request=request, devices=[], paired=paired))
+        html = tpl.render(request=request, devices=[], paired=paired)
+        return HTMLResponse(html)
 
     @app.get("/bt/scan_json", dependencies=[Depends(require_auth)])
     async def bt_scan_json() -> JSONResponse:
@@ -186,7 +232,10 @@ def make_app(manager: PlaybackManager) -> FastAPI:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     @app.post("/bt/connect_json", dependencies=[Depends(require_auth)])
-    async def bt_connect_json(mac: str = Form(...), save_as_preferred: str | None = Form(None)) -> JSONResponse:
+    async def bt_connect_json(
+        mac: str = Form(...),
+        save_as_preferred: str | None = Form(None),
+    ) -> JSONResponse:
         try:
             ok = await asyncio.to_thread(pair_trust_connect, mac)
             if ok and save_as_preferred == "on":
@@ -199,12 +248,12 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
-    # logs page (journal/file)
     @app.get("/logs", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
     async def logs_page(request: Request):
         log_path = Path("logs") / "cuebeam.log"
         text = log_path.read_text(encoding="utf-8")[-100_000:] if log_path.exists() else "(no logs yet)"
         tpl = env.get_template("logs.html")
-        return HTMLResponse(tpl.render(request=request, logtext=text))
+        html = tpl.render(request=request, logtext=text)
+        return HTMLResponse(html)
 
     return app

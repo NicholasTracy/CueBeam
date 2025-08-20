@@ -1,39 +1,27 @@
 # CueBeam
 
-Raspberry Pi media player with seamless MPV playback, idle/event/random logic, web UI, GPIO/Art-Net/sACN triggers,
-Bluetooth pairing, optional auth, JSON status API, WebSocket live status, systemd autostart, and GitHub auto-release.
+Headless playlisted video playback on Raspberry Pi (HDMI) with idle/event/random logic, GPIO or Art-Net/sACN triggers (stubs), Bluetooth audio pairing, web UI, now-playing + system info panels, and systemd autostart.
 
-## Dependencies
+## Quick install (Pi)
 
-- System packages on Raspberry Pi / Debian / Ubuntu:
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y mpv python3-venv python3-pip bluez
-  ```
-
-- Python deps are pinned in `requirements.txt`:
-  - `python-mpv==1.0.8`
-  - `sacn==1.11.0`
-
-## Quick start
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -r requirements.txt
-python app.py
+sudo apt-get update && sudo apt-get install -y git
+git clone https://github.com/yourname/CueBeam.git
+cd CueBeam
+bash scripts/install.sh
+sudo systemctl enable --now cuebeam.service
 ```
 
 Open `http://<pi-ip>:8080`
 
-## Autostart
+## Develop (no systemd)
+
 ```bash
-sudo cp systemd/cuebeam.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable cuebeam.service
-sudo systemctl start cuebeam.service
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+pip install -U pip && pip install -r requirements.txt
+export GPIOZERO_PIN_FACTORY=pigpio
+uvicorn asgi:app --host 0.0.0.0 --port 8080 --reload --reload-exclude media
 ```
 
-## CI & Releases
-- CI installs `mpv`, then runs flake8 and mypy.
-- Tag `vX.Y.Z` to trigger the release workflow, which uploads `CueBeam.zip`.
+Add videos to `media/idle`, `media/events`, `media/random` (or use Upload).

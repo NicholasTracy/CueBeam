@@ -38,7 +38,6 @@ class PlaybackManager:
         self._scheduler.start()
         self._apply_shutdown_schedule()
 
-        # mpv init + tolerant flag handling
         flags: List[str] = self.cfg.get("mpv_flags", []) or []
         ao = self.cfg.get("audio_output_device") or None
         self.mpv = MPV(ao=ao, ytdl=False)
@@ -50,7 +49,6 @@ class PlaybackManager:
             key, _, val = f.partition("=")
             key = key.lstrip("-").replace("-", "_")
             try:
-                # Prefer mpv command interface
                 if val:
                     v = val
                     if v.isdigit():
@@ -86,30 +84,56 @@ class PlaybackManager:
 
         threading.Thread(target=self._idle_monitor_loop, daemon=True).start()
 
-    # config & schedule
-
     def _load_config(self) -> None:
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         if not CONFIG_PATH.exists():
             CONFIG_PATH.write_text(
-                "idle_to_random_seconds: 60\n"
-                'daily_shutdown_time: ""\n'
-                "mpv_flags: []\n"
-                'audio_output_device: ""\n'
-                'trigger_source: "gpio"\n',
+                "idle_to_random_seconds: 60\\n"
+                'daily_shutdown_time: ""\\n'
+                "mpv_flags: []\\n"
+                'audio_output_device: ""\\n'
+                'trigger_source: "gpio"\\n',
                 encoding="utf-8",
             )
         self.cfg = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+
         # Normalize
         self.cfg.setdefault("idle_to_random_seconds", 60)
         self.cfg.setdefault("daily_shutdown_time", "")
         self.cfg.setdefault("mpv_flags", [])
         self.cfg.setdefault("audio_output_device", "")
         self.cfg.setdefault("trigger_source", "gpio")
-        self.cfg.setdefault("gpio", {"pin": 17, "pull": "up", "edge": "falling", "debounce_ms": 50})
-        self.cfg.setdefault("artnet", {"listen_host": "0.0.0.0", "port": 6454, "universe": 0, "channel": 1, "threshold": 128})
-        self.cfg.setdefault("sacn", {"universe": 1, "channel": 1, "threshold": 128})
-        self.cfg.setdefault("bluetooth", {"preferred_mac": "", "scan_seconds": 8})
+        self.cfg.setdefault(
+            "gpio",
+            {
+                "pin": 17,
+                "pull": "up",
+                "edge": "falling",
+                "debounce_ms": 50,
+            },
+        )
+        self.cfg.setdefault(
+            "artnet",
+            {
+                "listen_host": "0.0.0.0",
+                "port": 6454,
+                "universe": 0,
+                "channel": 1,
+                "threshold": 128,
+            },
+        )
+        self.cfg.setdefault(
+            "sacn",
+            {
+                "universe": 1,
+                "channel": 1,
+                "threshold": 128,
+            },
+        )
+        self.cfg.setdefault(
+            "bluetooth",
+            {"preferred_mac": "", "scan_seconds": 8},
+        )
         self.cfg.setdefault("auth", {"enabled": False})
 
     def reload_config(self) -> None:
@@ -129,12 +153,10 @@ class PlaybackManager:
                 self.shutdown_pi, "cron", hour=hh, minute=mm, id="daily_shutdown"
             )
 
-    # mpv hooks (python-mpv 1.0.8 compatible)
-
     def _install_mpv_hooks(self) -> None:
         try:
             @self.mpv.property_observer("path")
-            def _on_path(_name, val) -> None:
+            def _on_path(_name, val) -> None:  # type: ignore[no-redef]
                 path_str = str(val) if val else ""
                 with self._lock:
                     self._state["current_path"] = path_str
@@ -161,11 +183,9 @@ class PlaybackManager:
                     time.sleep(0.5)
             threading.Thread(target=_poll_loop, daemon=True).start()
 
-    # playlist helpers
-
     def _write_m3u(self, items: List[str]) -> None:
         tmp = CURRENT_M3U.with_suffix(".tmp")
-        text = "\n".join(items) + ("\n" if items else "")
+        text = "\\n".join(items) + ("\\n" if items else "")
         tmp.write_text(text, encoding="utf-8")
         tmp.replace(CURRENT_M3U)
 
@@ -200,8 +220,6 @@ class PlaybackManager:
             self.mpv.command("playlist-play-index", str(idx))
         else:
             self.mpv.command("playlist-play-index", "0")
-
-    # public controls
 
     def start(self) -> None:
         with self._lock:
@@ -272,8 +290,19 @@ class PlaybackManager:
 
     def status(self) -> Dict[str, Any]:
         with self._lock:
+            cur = str(self._state.get("current_path", ""))
+            category = ""
+            if cur:
+                if self._state.get("in_random_mode"):
+                    category = "random"
+                elif cur.startswith(str(IDLE_DIR)):
+                    category = "idle"
+                else:
+                    category = "event"
             return {
-                "current_path": str(self._state.get("current_path", "")),
+                "current_path": cur,
+                "current_basename": os.path.basename(cur) if cur else "",
+                "current_category": category,
                 "is_paused": bool(self._state.get("is_paused", False)),
                 "in_random_mode": bool(self._state.get("in_random_mode", False)),
                 "last_event_ts": float(self._state.get("last_event_ts", 0.0)),
@@ -285,8 +314,6 @@ class PlaybackManager:
                 "artnet": self.cfg.get("artnet", {}),
                 "sacn": self.cfg.get("sacn", {}),
             }
-
-    # idle loop
 
     def _idle_monitor_loop(self) -> None:
         while True:

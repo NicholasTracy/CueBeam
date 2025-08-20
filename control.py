@@ -1,7 +1,4 @@
-import threading
 from typing import Callable, Any, Dict
-
-from playback import PlaybackManager  # only for type context, not required
 
 
 class ControlManager:
@@ -9,7 +6,6 @@ class ControlManager:
         self.cfg = cfg
         self._on_event = on_event
         self._gpio_button = None
-        self._thread = None
 
     def start(self) -> None:
         src = (self.cfg.get("trigger_source") or "gpio").lower()
@@ -21,8 +17,6 @@ class ControlManager:
             self._start_sacn()
         else:
             print(f"[WARN] Unknown trigger_source: {src}")
-
-    # --- GPIO
 
     def _on_trigger(self) -> None:
         try:
@@ -37,7 +31,7 @@ class ControlManager:
             pin = int(g.get("pin", 17))
             pull_up = (g.get("pull", "up").lower() == "up")
             bounce_s = float(g.get("debounce_ms", 50)) / 1000.0
-            edge = (g.get("edge", "falling").lower())
+            edge = g.get("edge", "falling").lower()
             btn = Button(pin, pull_up=pull_up, bounce_time=bounce_s or None)
             if edge == "rising":
                 btn.when_pressed = self._on_trigger
@@ -47,15 +41,15 @@ class ControlManager:
             else:
                 btn.when_released = self._on_trigger
             self._gpio_button = btn
-            print(f"[GPIO] listening on BCM {pin} ({'pull_up' if pull_up else 'pull_down'}) edge={edge}")
+            print(
+                f"[GPIO] listening on BCM {pin} "
+                f"({'pull_up' if pull_up else 'pull_down'}) edge={edge}"
+            )
         except Exception as e:
             print(f"[WARN] GPIO disabled: {e}")
 
-    # --- Art-Net / sACN placeholders (previous logic assumed)
     def _start_artnet(self) -> None:
-        # TODO: hook your existing artnet listener here
-        print("[ArtNet] listener enabled")
+        print("[ArtNet] listener enabled (stub)")
 
     def _start_sacn(self) -> None:
-        # TODO: hook your existing sACN listener here
-        print("[sACN] listener enabled")
+        print("[sACN] listener enabled (stub)")

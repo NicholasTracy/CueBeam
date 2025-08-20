@@ -1,22 +1,14 @@
-mkdir -p scripts
-cat > scripts/install.sh <<'BASH'
+
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- Detect paths
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR"
 USER_NAME="${SUDO_USER:-$USER}"
-USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 
 echo "[1/6] Installing apt packages..."
 sudo apt-get update
-sudo apt-get install -y \
-  python3-full python3-venv python3-pip \
-  mpv libmpv1 \
-  pigpio python3-pigpio \
-  bluez bluez-tools \
-  unzip curl
+sudo apt-get install -y   python3-full python3-venv python3-pip   mpv libmpv1   pigpio python3-pigpio   bluez bluez-tools   unzip curl
 
 echo "[2/6] Enabling pigpio + Bluetooth daemons..."
 sudo systemctl enable --now pigpiod
@@ -30,7 +22,6 @@ source .venv/bin/activate
 python -m pip install -U pip setuptools wheel
 
 echo "[4/6] Installing Python requirements..."
-# ensure python-multipart present for file uploads
 grep -q '^python-multipart' requirements.txt || echo 'python-multipart>=0.0.9' >> requirements.txt
 python -m pip install -r requirements.txt
 
@@ -74,5 +65,3 @@ EOF
 
 sudo systemctl daemon-reload
 echo "Install complete. Start with: sudo systemctl enable --now cuebeam.service"
-BASH
-chmod +x scripts/install.sh

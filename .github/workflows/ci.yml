@@ -1,33 +1,23 @@
 name: CI
+
 on:
   push:
+    branches: [ main ]
   pull_request:
 
 jobs:
-  lint-and-typecheck:
+  lint-type:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install system dependencies (mpv)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mpv
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-
-      - name: Flake8
-        run: flake8 . --max-line-length=120 --extend-ignore=E203,W503
-
-      - name: Mypy
-        run: mypy . --ignore-missing-imports --install-types --non-interactive
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install deps
+      run: |
+        python -m pip install -U pip
+        python -m pip install flake8 mypy types-ujson
+    - name: Lint
+      run: flake8 .
+    - name: Type check
+      run: mypy . --ignore-missing-imports --install-types --non-interactive
