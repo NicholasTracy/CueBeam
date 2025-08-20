@@ -1,24 +1,51 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Bluetooth • CueBeam</title><link href='/static/style.css' rel='stylesheet'></head>
-<body>
+<!doctype html><html><head><meta charset="utf-8"><title>Bluetooth</title>
+<style>#scanbtn{margin-right:.5rem}#spinner{display:none}.badge{display:inline-block;padding:.15rem .35rem;border:1px solid #aaa;border-radius:.4rem;margin-left:.35rem;font-size:.85em}.ok{color:#175f17;border-color:#175f17}.err{color:#7a1212;border-color:#7a1212}.small{font-size:.9em;color:#555}button{margin:.25rem}</style>
+</head><body>
 <h1>Bluetooth</h1>
-<h2>Discovered</h2>
+<div>
+  <button id="scanbtn">Scan</button>
+  <span id="spinner">⟳ scanning…</span>
+  <span id="msg" class="badge"></span>
+</div>
+<h3>Scanned devices</h3>
+<ul id="devs"><li class="small">Press “Scan” to search…</li></ul>
+<h3>Paired</h3>
 <ul>
-  {% for mac, name in devices %}
-    <li>{{ name }} ({{ mac }})
-      <form method='post' action='/bt/connect' style='display:inline'>
-        <input type='hidden' name='mac' value='{{ mac }}'>
-        <label><input type='checkbox' name='save_as_preferred'> Save as preferred</label>
-        <button type='submit'>Pair & Connect</button>
-      </form>
-    </li>
-  {% endfor %}
+{% for d in paired %}<li>{{ d.get('name','?') }} ({{ d.get('mac','?') }})</li>{% else %}<li class="small">None</li>{% endfor %}
 </ul>
-
-<h2>Paired</h2>
-<ul>
-  {% for mac, name in paired %}
-    <li>{{ name }} ({{ mac }}) {% if preferred == mac %} • Preferred{% endif %}</li>
-  {% endfor %}
-</ul>
-<p><a href='/settings'>Back</a></p>
+<p><a href="/">Back</a></p>
+<script>
+const btn = document.getElementById('scanbtn');
+const spin = document.getElementById('spinner');
+const list = document.getElementById('devs');
+const msg = document.getElementById('msg');
+function setMsg(text, ok=true){ msg.textContent = text; msg.className = 'badge ' + (ok?'ok':'err'); }
+async function doScan(){
+  btn.disabled = true; spin.style.display='inline'; setMsg('');
+  list.innerHTML = '<li class="small">Scanning…</li>';
+  try{
+    const r = await fetch('/bt/scan_json'); const j = await r.json();
+    if(!j.ok){ setMsg(j.error||'scan failed', false); list.innerHTML='<li class="small">No results</li>'; }
+    else{
+      const devs = j.devices||[]; list.innerHTML = devs.length? '' : '<li class="small">No devices found</li>';
+      devs.forEach(d=>{
+        const li = document.createElement('li');
+        const name = d.name || '(unknown)'; const mac = d.mac || d.address || '?';
+        li.textContent = `${name} (${mac}) `;
+        const b = document.createElement('button'); b.textContent = 'Connect';
+        b.onclick = async ()=>{
+          setMsg('connecting to '+mac+'…');
+          const form = new FormData(); form.append('mac', mac); form.append('save_as_preferred','on');
+          const rr = await fetch('/bt/connect_json', {method:'POST', body: form});
+          const jj = await rr.json(); setMsg(jj.ok? ('connected to '+mac) : (jj.error||'connect failed'), !!jj.ok);
+        };
+        li.appendChild(b); list.appendChild(li);
+      });
+      if(devs.length) setMsg(`found ${devs.length}`);
+    }
+  } catch(e){ setMsg('scan error: '+e, false); }
+  finally{ btn.disabled=false; spin.style.display='none'; }
+}
+btn.onclick = (e)=>{ e.preventDefault(); doScan(); };
+</script>
 </body></html>
