@@ -88,16 +88,15 @@ class PlaybackManager:
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         if not CONFIG_PATH.exists():
             CONFIG_PATH.write_text(
-                "idle_to_random_seconds: 60\\n"
-                'daily_shutdown_time: ""\\n'
-                "mpv_flags: []\\n"
-                'audio_output_device: ""\\n'
-                'trigger_source: "gpio"\\n',
+                "idle_to_random_seconds: 60\n"
+                'daily_shutdown_time: ""\n'
+                "mpv_flags: []\n"
+                'audio_output_device: ""\n'
+                'trigger_source: "gpio"\n',
                 encoding="utf-8",
             )
         self.cfg = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
 
-        # Normalize
         self.cfg.setdefault("idle_to_random_seconds", 60)
         self.cfg.setdefault("daily_shutdown_time", "")
         self.cfg.setdefault("mpv_flags", [])
@@ -105,12 +104,7 @@ class PlaybackManager:
         self.cfg.setdefault("trigger_source", "gpio")
         self.cfg.setdefault(
             "gpio",
-            {
-                "pin": 17,
-                "pull": "up",
-                "edge": "falling",
-                "debounce_ms": 50,
-            },
+            {"pin": 17, "pull": "up", "edge": "falling", "debounce_ms": 50},
         )
         self.cfg.setdefault(
             "artnet",
@@ -122,18 +116,8 @@ class PlaybackManager:
                 "threshold": 128,
             },
         )
-        self.cfg.setdefault(
-            "sacn",
-            {
-                "universe": 1,
-                "channel": 1,
-                "threshold": 128,
-            },
-        )
-        self.cfg.setdefault(
-            "bluetooth",
-            {"preferred_mac": "", "scan_seconds": 8},
-        )
+        self.cfg.setdefault("sacn", {"universe": 1, "channel": 1, "threshold": 128})
+        self.cfg.setdefault("bluetooth", {"preferred_mac": "", "scan_seconds": 8})
         self.cfg.setdefault("auth", {"enabled": False})
 
     def reload_config(self) -> None:
@@ -150,7 +134,11 @@ class PlaybackManager:
         if t:
             hh, mm = [int(x) for x in t.split(":")]
             self._scheduler.add_job(
-                self.shutdown_pi, "cron", hour=hh, minute=mm, id="daily_shutdown"
+                self.shutdown_pi,
+                "cron",
+                hour=hh,
+                minute=mm,
+                id="daily_shutdown",
             )
 
     def _install_mpv_hooks(self) -> None:
@@ -181,11 +169,12 @@ class PlaybackManager:
                                 self._state["in_random_mode"] = False
                         last = cur
                     time.sleep(0.5)
+
             threading.Thread(target=_poll_loop, daemon=True).start()
 
     def _write_m3u(self, items: List[str]) -> None:
         tmp = CURRENT_M3U.with_suffix(".tmp")
-        text = "\\n".join(items) + ("\\n" if items else "")
+        text = "\n".join(items) + ("\n" if items else "")
         tmp.write_text(text, encoding="utf-8")
         tmp.replace(CURRENT_M3U)
 
@@ -308,7 +297,9 @@ class PlaybackManager:
                 "last_event_ts": float(self._state.get("last_event_ts", 0.0)),
                 "playlist": self._read_m3u(),
                 "audio_output_device": str(self.cfg.get("audio_output_device", "")),
-                "idle_to_random_seconds": int(self.cfg.get("idle_to_random_seconds", 60)),
+                "idle_to_random_seconds": int(
+                    self.cfg.get("idle_to_random_seconds", 60)
+                ),
                 "trigger_source": str(self.cfg.get("trigger_source", "gpio")),
                 "gpio": self.cfg.get("gpio", {}),
                 "artnet": self.cfg.get("artnet", {}),
@@ -327,7 +318,10 @@ class PlaybackManager:
                     cur = str(self._state["current_path"])
                     if cur and cur.startswith(str(IDLE_DIR)):
                         if float(time.time()) - last_event >= wait_s:
-                            recently = float(time.time()) - float(self._state["last_random_injected_ts"])
+                            recently = (
+                                float(time.time())
+                                - float(self._state["last_random_injected_ts"])
+                            )
                             if recently >= max(5, wait_s // 2):
                                 _ = self.trigger_random()
             except Exception as exc:

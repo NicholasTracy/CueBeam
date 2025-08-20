@@ -1,42 +1,80 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Settings</title></head>
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Settings</title>
+<link rel="stylesheet" href="/static/style.css"></head>
 <body>
 <h1>Settings</h1>
 <form method="post" action="/settings/update">
-  <label>Idle→Random (sec): <input type="number" name="idle_to_random_seconds" value="{{ (cfg.get('idle_to_random_seconds') or 60) }}" required></label><br>
-  <label>Daily shutdown HH:MM: <input name="daily_shutdown_time" value="{{ (cfg.get('daily_shutdown_time') or '') }}"></label><br>
-  <label>Audio output device: <input name="audio_output_device" value="{{ (cfg.get('audio_output_device') or '') }}"></label><br>
-  {% set ts = (cfg.get('trigger_source') or 'gpio') %}
-  <h3>Trigger Source</h3>
-  <select name="trigger_source">
-    <option value="gpio"  {{ 'selected' if ts=='gpio'  else '' }}>GPIO</option>
-    <option value="artnet"{{ 'selected' if ts=='artnet' else '' }}>Art-Net</option>
-    <option value="sacn"  {{ 'selected' if ts=='sacn'  else '' }}>sACN</option>
-  </select>
-  {% set g = (cfg.get('gpio') or {}) %}
-  <h3>GPIO</h3>
-  <label>Pin (BCM) <input name="gpio_pin" type="number" value="{{ g.get('pin', 17) }}"></label>
-  <label>Pull <input name="gpio_pull" value="{{ g.get('pull', 'up') }}"></label>
-  <label>Edge <input name="gpio_edge" value="{{ g.get('edge', 'falling') }}"></label>
-  <label>Debounce ms <input name="gpio_db_ms" type="number" value="{{ g.get('debounce_ms', 50) }}"></label>
-  {% set a = (cfg.get('artnet') or {}) %}
-  <h3>Art-Net</h3>
-  <label>Universe <input type="number" name="artnet_universe" value="{{ a.get('universe', 0) }}"></label>
-  <label>Channel <input type="number" name="artnet_channel" value="{{ a.get('channel', 1) }}"></label>
-  <label>Threshold <input type="number" name="artnet_threshold" value="{{ a.get('threshold', 128) }}"></label>
-  {% set s = (cfg.get('sacn') or {}) %}
-  <h3>sACN</h3>
-  <label>Universe <input type="number" name="sacn_universe" value="{{ s.get('universe', 1) }}"></label>
-  <label>Channel <input type="number" name="sacn_channel" value="{{ s.get('channel', 1) }}"></label>
-  <label>Threshold <input type="number" name="sacn_threshold" value="{{ s.get('threshold', 128) }}"></label>
-  {% set auth = (cfg.get('auth') or {}) %}
-  <h3>Auth</h3>
-  <label><input type="checkbox" name="auth_enabled_f" {{ 'checked' if auth.get('enabled') else '' }}> Enable auth</label><br>
-  <label>New password: <input type="password" name="auth_password"></label><br>
-  <label>Cookie secret: <input name="cookie_secret" value="{{ auth.get('cookie_secret','') }}"></label>
-  {% set bt = (cfg.get('bluetooth') or {}) %}
-  <h3>Bluetooth</h3>
-  <label>Preferred MAC <input name="preferred_mac" value="{{ bt.get('preferred_mac','') }}"></label>
-  <label>Scan seconds <input type="number" name="bt_scan_seconds" value="{{ bt.get('scan_seconds',8) }}"></label>
-  <p><button type="submit">Save</button> <a href="/">Back</a></p>
+  <h3>General</h3>
+  <label>Idle→Random seconds
+    <input name="idle_to_random_seconds" type="number"
+           value="{{ cfg.idle_to_random_seconds }}">
+  </label>
+  <label>Daily shutdown (HH:MM)
+    <input name="daily_shutdown_time" value="{{ cfg.daily_shutdown_time }}">
+  </label>
+  <label>Audio device (mpv ao)
+    <input name="audio_output_device" value="{{ cfg.audio_output_device }}">
+  </label>
+
+  <h3>Triggers</h3>
+  <label>Source
+    <select name="trigger_source">
+      {% for s in ['gpio','artnet','sacn'] %}
+      <option value="{{ s }}" {% if cfg.trigger_source==s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="card">
+    <h4>GPIO</h4>
+    <label>Pin (BCM) <input name="gpio_pin" type="number" value="{{ cfg.gpio.pin }}"></label>
+    <label>Pull
+      <select name="gpio_pull">
+        {% for p in ['up','down'] %}
+        <option value="{{ p }}" {% if cfg.gpio.pull==p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Edge
+      <select name="gpio_edge">
+        {% for e in ['rising','falling','both'] %}
+        <option value="{{ e }}" {% if cfg.gpio.edge==e %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Debounce ms
+      <input name="gpio_db_ms" type="number" value="{{ cfg.gpio.debounce_ms }}">
+    </label>
+  </div>
+
+  <div class="card">
+    <h4>Art-Net</h4>
+    <label>Universe <input name="artnet_universe" type="number" value="{{ cfg.artnet.universe }}"></label>
+    <label>Channel <input name="artnet_channel" type="number" value="{{ cfg.artnet.channel }}"></label>
+    <label>Threshold <input name="artnet_threshold" type="number" value="{{ cfg.artnet.threshold }}"></label>
+  </div>
+
+  <div class="card">
+    <h4>sACN</h4>
+    <label>Universe <input name="sacn_universe" type="number" value="{{ cfg.sacn.universe }}"></label>
+    <label>Channel <input name="sacn_channel" type="number" value="{{ cfg.sacn.channel }}"></label>
+    <label>Threshold <input name="sacn_threshold" type="number" value="{{ cfg.sacn.threshold }}"></label>
+  </div>
+
+  <div class="card">
+    <h4>Auth</h4>
+    <label><input type="checkbox" name="auth_enabled_f"
+           {% if cfg.auth.enabled %}checked{% endif %}> Enable</label>
+    <label>Password
+      <input name="auth_password" type="password" placeholder="leave blank to reuse">
+    </label>
+  </div>
+
+  <div class="card">
+    <h4>Bluetooth</h4>
+    <label>Preferred MAC <input name="preferred_mac" value="{{ cfg.bluetooth.preferred_mac }}"></label>
+    <label>Scan seconds <input name="bt_scan_seconds" type="number" value="{{ cfg.bluetooth.scan_seconds }}"></label>
+  </div>
+
+  <button type="submit">Save</button>  <a href="/">Back</a>
 </form>
 </body></html>

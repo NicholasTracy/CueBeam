@@ -37,12 +37,18 @@ def _require_auth(cfg: Dict[str, Any]) -> Callable:
         token = request.cookies.get(cookie_name)
         if not token or (secret and token != secret):
             raise RedirectResponse("/login")
+
     return _dep
 
 
 def _sysinfo() -> Dict[str, Any]:
     try:
-        ips = subprocess.run(["hostname", "-I"], stdout=subprocess.PIPE, text=True, check=False).stdout.strip().split()
+        ips = subprocess.run(
+            ["hostname", "-I"],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
+        ).stdout.strip().split()
     except Exception:
         ips = []
     up = 0.0
@@ -79,7 +85,11 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         html = tpl.render(request=request)
         return HTMLResponse(html)
 
-    @app.get("/settings", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+    @app.get(
+        "/settings",
+        response_class=HTMLResponse,
+        dependencies=[Depends(require_auth)],
+    )
     async def settings(request: Request):
         tpl = templates.get_template("settings.html")
         html = tpl.render(request=request, cfg=manager.cfg)
@@ -228,8 +238,8 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         try:
             devices = await asyncio.to_thread(scan, secs)
             return JSONResponse({"ok": True, "duration": secs, "devices": devices})
-        except Exception as e:
-            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        except Exception as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
 
     @app.post("/bt/connect_json", dependencies=[Depends(require_auth)])
     async def bt_connect_json(
@@ -245,13 +255,17 @@ def make_app(manager: PlaybackManager) -> FastAPI:
                 CONFIG_PATH.write_text(yaml.safe_dump(cfg), encoding="utf-8")
                 manager.reload_config()
             return JSONResponse({"ok": bool(ok)})
-        except Exception as e:
-            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        except Exception as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
 
     @app.get("/logs", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
     async def logs_page(request: Request):
         log_path = Path("logs") / "cuebeam.log"
-        text = log_path.read_text(encoding="utf-8")[-100_000:] if log_path.exists() else "(no logs yet)"
+        text = ""
+        if log_path.exists():
+            text = log_path.read_text(encoding="utf-8")[-100_000:]
+        else:
+            text = "(no logs yet)"
         tpl = env.get_template("logs.html")
         html = tpl.render(request=request, logtext=text)
         return HTMLResponse(html)

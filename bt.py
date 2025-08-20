@@ -3,8 +3,14 @@ from typing import List, Dict
 
 
 def _run(cmd: list[str]) -> str:
-    r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
-    return r.stdout
+    res = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    return res.stdout
 
 
 def scan(timeout_sec: int = 8) -> List[Dict[str, str]]:

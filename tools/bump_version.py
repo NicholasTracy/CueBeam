@@ -14,7 +14,9 @@ def write_version(path: Path, v: str) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Bump version.txt and echo new version")
+    ap = argparse.ArgumentParser(
+        description="Bump version.txt and echo new version"
+    )
     ap.add_argument("version", help="New version like 1.2.3")
     ap.add_argument("--file", default="version.txt", help="Path to version file")
     args = ap.parse_args()
