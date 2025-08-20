@@ -16,7 +16,7 @@ Think of it as a remote-controlled, always-on media player appliance — ideal f
   - `idle/` — looped background playback
   - `cues/` — triggered or scheduled playback
 - 📱 **Web UI** for uploading, managing, and triggering videos
-- 🔌 **GPIO integration** — trigger cues via physical buttons or control lights
+- 🔌 **GPIO integration** — trigger cues via physical buttons or Artnet/sACN
 - 📡 **Bluetooth scan/pair support** (in Settings tab)
 - 🚀 Autostart as a systemd service
 - 🛠️ Built with **FastAPI**, **uvicorn**, **WebSockets**, and **mpv JSON IPC**
@@ -25,7 +25,7 @@ Think of it as a remote-controlled, always-on media player appliance — ideal f
 
 ## 📋 Requirements
 
-- Raspberry Pi 4 (or similar SBC, x86 also works)
+- Raspberry Pi 3 (or similar SBC, x86 also works)
 - Raspberry Pi OS Lite or Debian/Ubuntu-based Linux
 - Installed system packages:
   ```bash
@@ -44,7 +44,7 @@ Think of it as a remote-controlled, always-on media player appliance — ideal f
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/CueBeam.git
+git clone https://github.com/NicholasTracy/CueBeam.git
 cd CueBeam
 
 # Create and activate venv
