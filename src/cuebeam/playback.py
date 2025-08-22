@@ -91,23 +91,10 @@ class PlaybackManager:
         ao = self.cfg.get("audio_output_device") or None
         self.mpv = MPV(ao=ao, ytdl=False)
 
-        # Ensure the idle playlist repeats indefinitely.  Without this
-        # setting mpv will stop when it reaches the end of the playlist,
-        # leaving the display blank.  Setting the ``loop-playlist``
-        # property to ``inf`` causes mpv to restart the playlist
-        # automatically when the last item finishes.
-        try:
-            # Prefer the property API (set_property).  This sets the
-            # ``loop-playlist`` option to ``inf``, causing the playlist to
-            # restart automatically when it finishes.
-            self.mpv.command("set_property", "loop-playlist", "inf")
-        except Exception:
-            try:
-                # Fallback to the older ``set`` command
-                self.mpv.command("set", "loop-playlist", "inf")
-            except Exception:
-                # If neither call succeeds, ignore; mpv will not loop
-                pass
+        # Do not set a global loop-playlist here.  The idle loop is enabled
+        # explicitly in ``start()`` and disabled when event or random clips
+        # are injected.  A global infinite loop across the entire playlist
+        # would cause event or random clips to repeat indefinitely.
 
         # Apply mpv flags.  Unknown options are ignored gracefully.
         for f in flags:
@@ -314,9 +301,18 @@ class PlaybackManager:
             if not idle:
                 logger.warning("No idle files found in %s", IDLE_DIR)
                 return
+            # Clear playlist and start playing the idle clip
             self._clear_playlist()
             self.mpv.command("loadfile", str(idle), "append-play")
             self._write_m3u([str(idle)])
+            # Enable infinite looping for the idle playlist
+            try:
+                self.mpv.command("set_property", "loop-playlist", "inf")
+            except Exception:
+                try:
+                    self.mpv.command("set", "loop-playlist", "inf")
+                except Exception:
+                    pass
             self.mpv.pause = False
 
     def trigger_event(self) -> bool:
@@ -327,21 +323,44 @@ class PlaybackManager:
         event is not injected.
         """
         with self._lock:
+            # Record the event timestamp
             self._state["last_event_ts"] = float(time.time())
+            # Do not inject if a random clip is currently playing
             if bool(self._state["in_random_mode"]):
                 return False
             ev = self._random_file(EVENTS_DIR)
             if not ev:
                 return False
-            lst = self._read_m3u()
-            if not lst:
-                return False
             idle = self._random_file(IDLE_DIR)
-            newlst: List[str] = [lst[0], str(ev)]
+            # Build a new playlist: event plays immediately, then idle
+            newlst: List[str] = [str(ev)]
             if idle:
                 newlst.append(str(idle))
+            else:
+                logger.warning("No idle files available to follow event")
+            # Write the playlist file
             self._write_m3u(newlst)
-            self._rebuild_mpv_playlist(newlst)
+            # Replace current playback with event and following idle
+            try:
+                # Clear existing playlist and load new items
+                self.mpv.command("playlist-clear")
+                for it in newlst:
+                    self.mpv.command("loadfile", it, "append-play")
+                # Start playing the first item (event) immediately
+                self.mpv.command("playlist-play-index", "0")
+                # Disable looping while event/random playlists are active
+                try:
+                    self.mpv.command("set_property", "loop-playlist", "no")
+                except Exception:
+                    try:
+                        self.mpv.command("set", "loop-playlist", "no")
+                    except Exception:
+                        pass
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to inject event clip: %s", exc)
+                return False
+            # Reset random mode state
+            self._state["in_random_mode"] = False
             return True
 
     def trigger_random(self) -> bool:
@@ -357,11 +376,23 @@ class PlaybackManager:
             if not lst:
                 return False
             idle = self._random_file(IDLE_DIR)
+            # Insert random clip after the currently playing idle, then return to idle
             newlst: List[str] = [lst[0], str(rnd)]
             if idle:
                 newlst.append(str(idle))
+            else:
+                logger.warning("No idle files available after random")
             self._write_m3u(newlst)
+            # Rebuild mpv playlist and keep playing current idle until it ends
             self._rebuild_mpv_playlist(newlst)
+            # Disable looping for the event/random playlist
+            try:
+                self.mpv.command("set_property", "loop-playlist", "no")
+            except Exception:
+                try:
+                    self.mpv.command("set", "loop-playlist", "no")
+                except Exception:
+                    pass
             self._state["last_random_injected_ts"] = float(time.time())
             return True
 
@@ -462,12 +493,22 @@ class PlaybackManager:
             time.sleep(1.0)
             try:
                 with self._lock:
+                    cur = str(self._state.get("current_path", ""))
+                    # If nothing is playing, restart idle playback
+                    if not cur:
+                        try:
+                            self.start()
+                        except Exception:
+                            pass
+                        continue
+                    # Skip random mode – do not inject additional clips
                     if bool(self._state["in_random_mode"]):
                         continue
+                    # Only inject random clips when idle has been playing for
+                    # the configured duration without recent events.
                     wait_s = int(self.cfg.get("idle_to_random_seconds", 60))
                     last_event = float(self._state["last_event_ts"])
-                    cur = str(self._state.get("current_path", ""))
-                    if cur and cur.startswith(str(IDLE_DIR)):
+                    if cur.startswith(str(IDLE_DIR)):
                         if float(time.time()) - last_event >= wait_s:
                             recently = (
                                 float(time.time())
