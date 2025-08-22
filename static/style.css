@@ -92,3 +92,31 @@ pre{
   background: #623232;
   border-color: #a04040;
 }
+
+/* Tables for system and status panels */
+.stat-table{
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0.2rem 0;
+}
+.stat-table th,
+.stat-table td{
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+  word-break: break-word;
+}
+.stat-table th{
+  font-weight: normal;
+  color: #bbbbbb;
+  width: 20%;
+}
+.stat-table td{
+  width: 30%;
+}
+.stat-table tr:nth-child(odd){
+  background-color: #1a1a1a;
+}
+.stat-table tr:nth-child(even){
+  background-color: #131313;
+}

@@ -53,16 +53,51 @@ const el = document.getElementById('status');
 const np = document.getElementById('np');
 const sys = document.getElementById('sys');
 
+function humanLabel(key){
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+function formatValue(val){
+  if (Array.isArray(val)) return val.length + ' items';
+  if (val && typeof val === 'object') {
+    return Object.entries(val).map(([k,v]) => `${humanLabel(k)}: ${v}`).join(', ');
+  }
+  return String(val);
+}
 function renderStatus(s){
-  el.textContent = JSON.stringify(s);
+  // Update "Now Playing" label
   const name = s.current_basename || '(none)';
   const cat = s.current_category || '-';
-  np.textContent = name + (cat ? '  ['+cat+']' : '');
+  np.textContent = name + (cat ? '  [' + cat + ']' : '');
+  // Build a human‑readable table of status entries
+  const entries = Object.entries(s).map(([k,v]) => [humanLabel(k), formatValue(v)]);
+  let html = '<table class="stat-table">';
+  for (let i = 0; i < entries.length; i += 2) {
+    const [k1, v1] = entries[i];
+    const pair2 = entries[i+1] || ['', ''];
+    const [k2, v2] = pair2;
+    html += `<tr><th>${k1}</th><td>${v1}</td><th>${k2}</th><td>${v2}</td></tr>`;
+  }
+  html += '</table>';
+  el.innerHTML = html;
 }
 function renderSysinfo(j){
-  const ips = (j.ips||[]).join(' · ');
-  const temp = (j.cpu_temp_c!=null)? (j.cpu_temp_c + '°C') : 'n/a';
-  sys.textContent = `Host: ${j.hostname}   IPs: ${ips}   Uptime: ${humanUptime(j.uptime_s)}   CPU: ${temp}`;
+  // Map system info to human‑readable entries
+  const data = {
+    'Host': j.hostname || '',
+    'IPs': (j.ips || []).join(', '),
+    'Uptime': humanUptime(j.uptime_s),
+    'CPU Temp': (j.cpu_temp_c != null) ? (j.cpu_temp_c + '°C') : 'n/a'
+  };
+  const entries = Object.entries(data);
+  let html = '<table class="stat-table">';
+  for (let i = 0; i < entries.length; i += 2) {
+    const [k1, v1] = entries[i];
+    const pair2 = entries[i+1] || ['', ''];
+    const [k2, v2] = pair2;
+    html += `<tr><th>${k1}</th><td>${v1}</td><th>${k2}</th><td>${v2}</td></tr>`;
+  }
+  html += '</table>';
+  sys.innerHTML = html;
 }
 function fallback(){
   fetch('/api/status').then(r=>r.json()).then(renderStatus).catch(()=>{el.textContent='status error'});
