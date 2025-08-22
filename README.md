@@ -70,7 +70,7 @@ uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
   - Web UI
   - REST API
   - WebSocket status feed
-  - Triggers (GPIO / Art-Net / sACN)
+  - Triggers (GPIO / Art-Net / sACN / Bluetooth)
 
 ---
 
@@ -94,7 +94,7 @@ sudo systemctl restart cuebeam
 
 ---
 
-## 🧪 Testing TODO
+## 🧪 Testing
 
 ```bash
 pytest
