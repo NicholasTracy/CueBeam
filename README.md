@@ -1,7 +1,7 @@
 # CueBeam
 
-[![CI](https://github.com/<your-username>/CueBeam/actions/workflows/python-app.yml/badge.svg)](https://github.com/<your-username>/CueBeam/actions/workflows/python-app.yml)
-[![pre-commit](https://github.com/<your-username>/CueBeam/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/<your-username>/CueBeam/actions/workflows/pre-commit.yml)
+[![CI](https://github.com/NicholasTracy/CueBeam/actions/workflows/python-app.yml/badge.svg)](https://github.com/NicholasTracy/CueBeam/actions/workflows/python-app.yml)
+[![pre-commit](https://github.com/NicholasTracy/CueBeam/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/NicholasTracy/CueBeam/actions/workflows/pre-commit.yml)
 
 CueBeam is a lightweight **media cue playback system** designed for **Raspberry Pi** (and other Linux SBCs) that gives you gapless, automated video playback with a simple **web interface**.
 
@@ -26,7 +26,7 @@ Think of it as a remote-controlled, always-on media player appliance — ideal f
 On a fresh Raspberry Pi OS:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/<your-username>/CueBeam/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/NicholasTracy/CueBeam/main/install.sh | bash
 ```
 
 This will:
@@ -51,7 +51,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-venv python3-dev git mpv ffmpeg \
     bluetooth bluez bluez-tools python3-rpi.gpio python3-gpiozero
 
-git clone https://github.com/<your-username>/CueBeam.git
+git clone https://github.com/NicholasTracy/CueBeam.git
 cd CueBeam
 python3 -m venv venv
 source venv/bin/activate
@@ -70,7 +70,8 @@ uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
   - Web UI
   - REST API
   - WebSocket status feed
-  - Triggers (GPIO / Art-Net / sACN / Bluetooth)
+  - Triggers (GPIO / Art-Net / sACN)
+  - Bluetooth Audio interface for scanning and connecting bluetooth devices
 
 ---
 
@@ -94,7 +95,7 @@ sudo systemctl restart cuebeam
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing (TODO)
 
 ```bash
 pytest
