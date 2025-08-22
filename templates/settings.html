@@ -5,29 +5,39 @@
 <div class="container">
 <h1>Settings</h1>
 <form method="post" action="/settings/update">
-  <h3>General</h3>
-  <label>Idle→Random seconds
-    <input name="idle_to_random_seconds" type="number"
-           value="{{ cfg.idle_to_random_seconds }}">
-  </label>
-  <label>Daily shutdown (HH:MM)
-    <input name="daily_shutdown_time" value="{{ cfg.daily_shutdown_time }}">
-  </label>
-  <label>Audio device (mpv ao)
-    <input name="audio_output_device" value="{{ cfg.audio_output_device }}">
-  </label>
+  <!-- General settings -->
+  <div class="card">
+    <h3>General</h3>
+    <label>Idle→Random seconds
+      <input name="idle_to_random_seconds" type="number"
+             value="{{ cfg.idle_to_random_seconds }}">
+    </label>
+    <label>Daily shutdown (HH:MM)
+      <input name="daily_shutdown_time" value="{{ cfg.daily_shutdown_time }}">
+    </label>
+    <label>Audio device (mpv ao)
+      <input name="audio_output_device" value="{{ cfg.audio_output_device }}">
+    </label>
+  </div>
 
-  <h3>Triggers</h3>
-  <label>Source
-    <select name="trigger_source">
-      {% for s in ['gpio','artnet','sacn'] %}
-      <option value="{{ s }}" {% if cfg.trigger_source==s %}selected{% endif %}>{{ s }}</option>
-      {% endfor %}
-    </select>
-  </label>
+  <!-- Trigger source selection -->
+  <div class="card">
+    <h3>Triggers</h3>
+    <label>Source
+      <select name="trigger_source">
+        {% for s in ['gpio','artnet','sacn'] %}
+        <option value="{{ s }}" {% if cfg.trigger_source==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <!-- GPIO configuration -->
   <div class="card">
     <h4>GPIO</h4>
-    <label>Pin (BCM) <input name="gpio_pin" type="number" value="{{ cfg.gpio.pin }}"></label>
+    <label>Pin (BCM)
+      <input name="gpio_pin" type="number" value="{{ cfg.gpio.pin }}">
+    </label>
     <label>Pull
       <select name="gpio_pull">
         {% for p in ['up','down'] %}
@@ -47,36 +57,50 @@
     </label>
   </div>
 
+  <!-- Art-Net configuration -->
   <div class="card">
     <h4>Art-Net</h4>
-    <label>Universe <input name="artnet_universe" type="number" value="{{ cfg.artnet.universe }}"></label>
-    <label>Channel <input name="artnet_channel" type="number" value="{{ cfg.artnet.channel }}"></label>
-    <label>Threshold <input name="artnet_threshold" type="number" value="{{ cfg.artnet.threshold }}"></label>
+    <label>Universe
+      <input name="artnet_universe" type="number" value="{{ cfg.artnet.universe }}">
+    </label>
+    <label>Channel
+      <input name="artnet_channel" type="number" value="{{ cfg.artnet.channel }}">
+    </label>
+    <label>Threshold
+      <input name="artnet_threshold" type="number" value="{{ cfg.artnet.threshold }}">
+    </label>
   </div>
 
+  <!-- sACN configuration -->
   <div class="card">
     <h4>sACN</h4>
-    <label>Universe <input name="sacn_universe" type="number" value="{{ cfg.sacn.universe }}"></label>
-    <label>Channel <input name="sacn_channel" type="number" value="{{ cfg.sacn.channel }}"></label>
-    <label>Threshold <input name="sacn_threshold" type="number" value="{{ cfg.sacn.threshold }}"></label>
+    <label>Universe
+      <input name="sacn_universe" type="number" value="{{ cfg.sacn.universe }}">
+    </label>
+    <label>Channel
+      <input name="sacn_channel" type="number" value="{{ cfg.sacn.channel }}">
+    </label>
+    <label>Threshold
+      <input name="sacn_threshold" type="number" value="{{ cfg.sacn.threshold }}">
+    </label>
   </div>
 
+  <!-- Authentication -->
   <div class="card">
     <h4>Auth</h4>
-    <label><input type="checkbox" name="auth_enabled_f"
-           {% if cfg.auth.enabled %}checked{% endif %}> Enable</label>
+    <label>
+      <input type="checkbox" name="auth_enabled_f"
+             {% if cfg.auth.enabled %}checked{% endif %}> Enable
+    </label>
     <label>Password
       <input name="auth_password" type="password" placeholder="leave blank to reuse">
     </label>
   </div>
 
-  <div class="card">
-    <h4>Bluetooth</h4>
-    <label>Preferred MAC <input name="preferred_mac" value="{{ cfg.bluetooth.preferred_mac }}"></label>
-    <label>Scan seconds <input name="bt_scan_seconds" type="number" value="{{ cfg.bluetooth.scan_seconds }}"></label>
+  <div style="text-align:center; margin:1rem 0;">
+    <button type="submit">Save</button>
+    <a href="/">Back</a>
   </div>
-
-  <button type="submit">Save</button>  <a href="/">Back</a>
 </form>
 </div>
 </body></html>

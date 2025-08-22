@@ -227,8 +227,8 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         sacn_threshold: int = Form(...),
         auth_enabled_f: str | None = Form(None),
         auth_password: str = Form(""),
-        preferred_mac: str = Form(""),
-        bt_scan_seconds: int = Form(...),
+        preferred_mac: str | None = Form(None),
+        bt_scan_seconds: int | None = Form(None),
     ):
         """Update the configuration from the submitted settings form.
 
@@ -264,10 +264,13 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         if auth_password:
             import hashlib
             auth_cfg["cookie_secret"] = hashlib.sha256(auth_password.encode()).hexdigest()
-        # Bluetooth
-        bt_cfg = cfg.setdefault("bluetooth", {})
-        bt_cfg["preferred_mac"] = preferred_mac.strip()
-        bt_cfg["scan_seconds"] = int(bt_scan_seconds)
+        # Bluetooth settings are not updated via this form.  Preserve existing values unless provided.
+        if preferred_mac is not None:
+            bt_cfg = cfg.setdefault("bluetooth", {})
+            bt_cfg["preferred_mac"] = preferred_mac.strip()
+        if bt_scan_seconds is not None:
+            bt_cfg = cfg.setdefault("bluetooth", {})
+            bt_cfg["scan_seconds"] = int(bt_scan_seconds)
         # Persist configuration
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
