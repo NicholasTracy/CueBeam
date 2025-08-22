@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="CueBeam"
 # Replace with your username before committing:
-REPO_URL="https://github.com/<your-username>/CueBeam.git"
+REPO_URL="https://github.com/NicholasTracy/CueBeam.git"
 APP_DIR="/home/pi/CueBeam"
 PY="/usr/bin/python3"
 
