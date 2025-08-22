@@ -4,44 +4,40 @@
   <meta charset="utf-8">
   <title>CueBeam</title>
   <link rel="stylesheet" href="/static/style.css">
-  <style>
-    .toast{position:fixed;right:1rem;top:1rem;padding:.6rem .9rem;border-radius:.4rem;
-      box-shadow:0 2px 8px rgba(0,0,0,.2);background:#e8ffe8;border:1px solid #9ed39e;display:none}
-    .toast.error{background:#ffe8e8;border-color:#d39e9e}
-    .card{border:1px solid #ddd;border-radius:.5rem;padding:1rem;margin:.75rem 0;
-      box-shadow:0 1px 4px rgba(0,0,0,.06)}
-  </style>
+  <!-- Styles are defined in static/style.css for dark theme and responsive layout -->
 </head>
 <body data-msg="{{ request.query_params.get('msg','') }}">
 <div id="toast" class="toast"></div>
-<h1>CueBeam</h1>
+<div class="container">
+  <h1>CueBeam</h1>
 
-<div class="card"><h3>Now Playing</h3><div id="np">—</div></div>
-<div class="card"><h3>System</h3><div id="sys">loading…</div></div>
-<div class="card"><h3>Status</h3><div id="status">connecting…</div></div>
+  <div class="card"><h3>Now Playing</h3><div id="np">—</div></div>
+  <div class="card"><h3>System</h3><div id="sys">loading…</div></div>
+  <div class="card"><h3>Status</h3><div id="status">connecting…</div></div>
 
-<form method="post" action="/action">
-  <button name="cmd" value="pause">Pause/Resume</button>
-  <button name="cmd" value="skip">Skip</button>
-  <button name="cmd" value="trigger_event">Trigger Event</button>
-  <button name="cmd" value="trigger_random">Play Random</button>
-  <button name="cmd" value="shutdown" onclick="return confirm('Shutdown Pi?')">Shutdown</button>
-  <button name="cmd" value="reboot" onclick="return confirm('Reboot Pi?')">Reboot</button>
-</form>
+  <form method="post" action="/action" style="text-align:center">
+    <button name="cmd" value="pause">Pause/Resume</button>
+    <button name="cmd" value="skip">Skip</button>
+    <button name="cmd" value="trigger_event">Trigger Event</button>
+    <button name="cmd" value="trigger_random">Play Random</button>
+    <button name="cmd" value="shutdown" onclick="return confirm('Shutdown Pi?')">Shutdown</button>
+    <button name="cmd" value="reboot" onclick="return confirm('Reboot Pi?')">Reboot</button>
+  </form>
 
-<h2>Upload</h2>
-<form method="post" action="/upload" enctype="multipart/form-data">
-  <input type="file" name="file" required>
-  <select name="target">
-    <option value="idle">idle</option>
-    <option value="events">events</option>
-    <option value="random">random</option>
-  </select>
-  <button type="submit">Upload</button>
-</form>
+  <h2>Upload</h2>
+  <form method="post" action="/upload" enctype="multipart/form-data" style="text-align:center">
+    <input type="file" name="file" required>
+    <select name="target">
+      <option value="idle">idle</option>
+      <option value="events">events</option>
+      <option value="random">random</option>
+    </select>
+    <button type="submit">Upload</button>
+  </form>
 
-<p><a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> |
-<a href="/logs">Logs</a></p>
+  <p style="text-align:center"><a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> |
+  <a href="/logs">Logs</a></p>
+</div>
 
 <script>
 function humanUptime(s){
