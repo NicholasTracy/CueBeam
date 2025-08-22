@@ -91,6 +91,24 @@ class PlaybackManager:
         ao = self.cfg.get("audio_output_device") or None
         self.mpv = MPV(ao=ao, ytdl=False)
 
+        # Ensure the idle playlist repeats indefinitely.  Without this
+        # setting mpv will stop when it reaches the end of the playlist,
+        # leaving the display blank.  Setting the ``loop-playlist``
+        # property to ``inf`` causes mpv to restart the playlist
+        # automatically when the last item finishes.
+        try:
+            # Prefer the property API (set_property).  This sets the
+            # ``loop-playlist`` option to ``inf``, causing the playlist to
+            # restart automatically when it finishes.
+            self.mpv.command("set_property", "loop-playlist", "inf")
+        except Exception:
+            try:
+                # Fallback to the older ``set`` command
+                self.mpv.command("set", "loop-playlist", "inf")
+            except Exception:
+                # If neither call succeeds, ignore; mpv will not loop
+                pass
+
         # Apply mpv flags.  Unknown options are ignored gracefully.
         for f in flags:
             f = (f or "").strip()
