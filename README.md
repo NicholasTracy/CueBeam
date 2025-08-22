@@ -57,7 +57,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-uvicorn asgi:app --host 0.0.0.0 --port 8080
+uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
 ```
 
 ---
@@ -104,16 +104,34 @@ pytest
 
 ## 📦 Project Layout
 
+In the reorganised structure, all Python modules live inside a
+`src/cuebeam` package.  This keeps the repository root clean and
+prevents accidental imports from the working directory when the
+project is installed in editable mode.
+
 ```
 CueBeam/
-├── asgi.py        # FastAPI entrypoint
-├── web.py         # Web routes / UI
-├── playback.py    # Playback engine
-├── control.py     # Cue + trigger handling
-├── requirements.txt
-├── install.sh     # Auto installer
-└── README.md
+├── src/
+│   └── cuebeam/
+│       ├── __init__.py   # exposes PlaybackManager and ControlManager
+│       ├── bt.py         # Bluetooth utilities
+│       ├── control.py    # Cue and trigger handling
+│       ├── playback.py   # Playback engine
+│       └── web/
+│           ├── __init__.py
+│           ├── app.py    # FastAPI application factory and routes
+│           └── asgi.py   # ASGI entrypoint for Uvicorn
+├── install.sh          # One‑line installer script
+├── scripts/install.sh  # Detailed install script used by developers
+├── config/             # Default configuration YAML
+├── playlists/          # Stores the current playlist
+├── static/             # CSS/JS assets (dark responsive theme)
+├── templates/          # HTML templates for the web UI
+└── systemd/            # systemd service unit
 ```
+
+Note: the root‑level `cuebeam` directory from earlier versions has
+been removed.  Use `src/cuebeam` as the canonical import path.
 
 ---
 
