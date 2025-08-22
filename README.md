@@ -71,7 +71,6 @@ uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
   - REST API
   - WebSocket status feed
   - Triggers (GPIO / Art-Net / sACN)
-  - Bluetooth Audio interface for scanning and connecting bluetooth devices
 
 ---
 
@@ -95,7 +94,7 @@ sudo systemctl restart cuebeam
 
 ---
 
-## 🧪 Testing (TODO)
+## 🧪 Testing TODO
 
 ```bash
 pytest
