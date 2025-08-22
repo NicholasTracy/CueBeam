@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import logging
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -7,6 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from playback import PlaybackManager  # type: ignore
+
+# Set up a module‑specific logger.  Using the logging module instead of print
+# statements provides structured, configurable logging across the application.
+logger = logging.getLogger(__name__)
 
 
 BASE_DIR = Path(__file__).parent.resolve()
@@ -42,8 +47,11 @@ def make_app(manager: PlaybackManager) -> FastAPI:
 
         dest_dir = BASE_DIR / "media" / category
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / file.filename
-
+        # Only use the basename of the uploaded filename to avoid path traversal
+        # attacks (e.g. filenames containing "../").  Path().name strips any
+        # directory separators.  See OWASP guidance on path traversal【714359060419038†L60-L69】.
+        safe_name = Path(file.filename).name
+        dest_path = dest_dir / safe_name
         try:
             with dest_path.open("wb") as out_f:
                 shutil.copyfileobj(file.file, out_f)

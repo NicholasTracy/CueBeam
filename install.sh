@@ -50,7 +50,10 @@ Wants=network-online.target
 User=pi
 WorkingDirectory=/home/pi/CueBeam
 Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf
-ExecStart=/home/pi/CueBeam/venv/bin/uvicorn asgi:app --host 0.0.0.0 --port 8080
+# Point uvicorn to the new ASGI entrypoint.  ``--app-dir src`` adds the
+# ``src`` directory to the Python module search path so that the
+# ``cuebeam`` package can be found.  See ``src/cuebeam/web/asgi.py``.
+ExecStart=/home/pi/CueBeam/venv/bin/uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=2
 

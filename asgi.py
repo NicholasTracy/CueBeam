@@ -2,9 +2,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from playback import PlaybackManager
-from control import ControlManager
-from web import make_app
+# Import from the cuebeam package to avoid relying on repository root modules.
+from cuebeam import PlaybackManager, ControlManager  # type: ignore
+from cuebeam.web import make_app  # type: ignore
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)

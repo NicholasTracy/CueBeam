@@ -1,3 +1,11 @@
+"""
+Trigger controller for CueBeam.
+
+This module implements ``ControlManager`` which monitors external triggers
+(GPIO, Art‑Net, sACN) and calls a callback when an event is detected.  It
+uses structured logging instead of ``print`` for observability.
+"""
+
 from typing import Callable, Any, Dict
 import logging
 
@@ -13,6 +21,7 @@ class ControlManager:
         self.logger = logging.getLogger(__name__)
 
     def start(self) -> None:
+        """Start listening for events based on the configured trigger source."""
         src = (self.cfg.get("trigger_source") or "gpio").lower()
         if src == "gpio":
             self._start_gpio()

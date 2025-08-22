@@ -53,7 +53,7 @@ Wants=network-online.target
 User=${USER_NAME}
 WorkingDirectory=${REPO_DIR}
 Environment=GPIOZERO_PIN_FACTORY=pigpio
-ExecStart=${REPO_DIR}/.venv/bin/uvicorn asgi:app --host 0.0.0.0 --port 8080
+ExecStart=${REPO_DIR}/.venv/bin/uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=2
 StandardOutput=journal
