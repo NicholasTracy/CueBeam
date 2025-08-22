@@ -1,54 +1,70 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 APP_NAME="CueBeam"
-APP_DIR="/home/pi/$APP_NAME"
-SERVICE_FILE="/etc/systemd/system/cuebeam.service"
+# Replace with your username before committing:
+REPO_URL="https://github.com/<your-username>/CueBeam.git"
+APP_DIR="/home/pi/CueBeam"
+PY="/usr/bin/python3"
 
-echo "🚀 Installing $APP_NAME..."
+echo "==> Updating apt and installing system packages"
+sudo apt update
+sudo apt install -y \
+  python3 python3-venv python3-dev git mpv ffmpeg \
+  bluetooth bluez bluez-tools python3-rpi.gpio python3-gpiozero \
+  libmpv2 || sudo apt install -y libmpv1
 
-# 1. Update system
-sudo apt update && sudo apt upgrade -y
-
-# 2. Install dependencies
-sudo apt install -y python3 python3-venv python3-dev git mpv ffmpeg \
-    bluetooth bluez bluez-tools python3-rpi.gpio python3-gpiozero
-
-# 3. Clone or update repo
-if [ ! -d "$APP_DIR" ]; then
-    git clone https://github.com/NicholasTracy/CueBeam.git "$APP_DIR"
+echo "==> Cloning or updating repository"
+if [[ ! -d "$APP_DIR/.git" ]]; then
+  sudo rm -rf "$APP_DIR"
+  git clone "$REPO_URL" "$APP_DIR"
 else
-    cd "$APP_DIR"
-    git pull
+  (cd "$APP_DIR" && git pull --ff-only)
 fi
 
+echo "==> Creating media directories"
+mkdir -p "$APP_DIR/media/idle" "$APP_DIR/media/event" "$APP_DIR/media/random"
+sudo chown -R pi:pi "$APP_DIR/media"
+
+echo "==> Creating Python venv and installing requirements"
 cd "$APP_DIR"
-
-# 4. Python virtualenv
-python3 -m venv venv
+if [[ ! -d venv ]]; then
+  "$PY" -m venv venv
+fi
+# shellcheck disable=SC1091
 source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
+python -m pip install -U pip wheel setuptools
+pip install -r requirements.txt || true
+pip install \
+  fastapi "uvicorn[standard]" jinja2 python-multipart \
+  websockets ujson pyyaml mpv
 
-# 5. Systemd service
-echo "⚙️ Setting up systemd service..."
-sudo tee $SERVICE_FILE > /dev/null <<EOL
+echo "==> Installing systemd service"
+sudo tee /etc/systemd/system/cuebeam.service >/dev/null <<'UNIT'
 [Unit]
 Description=CueBeam Media Playback Server
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=pi
-WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/venv/bin/uvicorn asgi:app --host 0.0.0.0 --port 8080
+WorkingDirectory=/home/pi/CueBeam
+Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf
+ExecStart=/home/pi/CueBeam/venv/bin/uvicorn asgi:app --host 0.0.0.0 --port 8080
 Restart=always
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
-EOL
+UNIT
 
+echo "==> Enabling and starting service"
 sudo systemctl daemon-reload
 sudo systemctl enable cuebeam
 sudo systemctl restart cuebeam
 
-echo "✅ $APP_NAME installed and running at http://<pi-ip>:8080"
+echo "==> Checking service status"
+sleep 2
+sudo systemctl --no-pager -l status cuebeam || true
+
+echo "==> Done. Open: http://<pi-ip>:8080"
