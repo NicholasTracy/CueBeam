@@ -6,6 +6,9 @@ on:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    # Grant the GITHUB_TOKEN permission to create and update releases.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Build zip
@@ -15,3 +18,10 @@ jobs:
         with:
           files: CueBeam-${{ github.ref_name }}.zip
           generate_release_notes: true
+          # Use the default GITHUB_TOKEN provided by GitHub Actions.  The
+          # permissions above grant write access to create and update
+          # releases.  If you experience "Resource not accessible by
+          # integration" errors, generate a personal access token with
+          # ``repo`` scope, add it as a secret (e.g. GH_PAT), and use
+          # ``token: ${{ secrets.GH_PAT }}`` instead.
+          token: ${{ github.token }}

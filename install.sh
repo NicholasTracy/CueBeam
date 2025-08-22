@@ -3,6 +3,8 @@ set -euo pipefail
 
 APP_NAME="CueBeam"
 # Replace with your username before committing:
+# Use the maintainer’s GitHub account by default.  Replace the username
+# if you are hosting your own fork.
 REPO_URL="https://github.com/NicholasTracy/CueBeam.git"
 APP_DIR="/home/pi/CueBeam"
 PY="/usr/bin/python3"
