@@ -1,7 +1,6 @@
 import sys
 import types
 
-import pytest
 from fastapi.testclient import TestClient
 from typing import cast, Any
 
