@@ -89,7 +89,8 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         dest_dir = PROJECT_ROOT / "media" / target
         dest_dir.mkdir(parents=True, exist_ok=True)
         # Sanitize filename
-        safe_name = Path(file.filename).name
+        # ``UploadFile.filename`` may be ``None``, so fall back to empty string to satisfy type check
+        safe_name = Path(file.filename or "").name
         dest_path = dest_dir / safe_name
         try:
             with dest_path.open("wb") as out_f:

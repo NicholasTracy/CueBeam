@@ -27,7 +27,8 @@ async def test_ping_endpoint() -> None:
     """Verify that the /api/ping endpoint returns 200 and {'ok': True} JSON."""
     # Cast our dummy manager to PlaybackManager for static type checking; the methods we use are compatible.
     app = make_app(cast(PlaybackManager, DummyManager()))
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    # httpx's type stubs do not recognise the ``app`` argument on ``AsyncClient``; ignore the type check
+    async with AsyncClient(app=app, base_url="http://test") as client:  # type: ignore[call-arg]
         response = await client.get("/api/ping")
         assert response.status_code == 200
         # Accept either {'ok': True} or {'result': 'ok'} for backward compatibility
