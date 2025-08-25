@@ -1,6 +1,9 @@
 import pytest
 from httpx import AsyncClient
+from typing import cast
+
 from cuebeam.web.app import make_app
+from cuebeam.playback import PlaybackManager
 
 
 class DummyManager:
@@ -22,7 +25,8 @@ class DummyManager:
 @pytest.mark.asyncio
 async def test_ping_endpoint() -> None:
     """Verify that the /api/ping endpoint returns 200 and {'ok': True} JSON."""
-    app = make_app(DummyManager())
+    # Cast our dummy manager to PlaybackManager for static type checking; the methods we use are compatible.
+    app = make_app(cast(PlaybackManager, DummyManager()))
     async with AsyncClient(app=app, base_url="http://test") as client:
         response = await client.get("/api/ping")
         assert response.status_code == 200
