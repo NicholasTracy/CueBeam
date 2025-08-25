@@ -1,0 +1,2389 @@
+commit 7da00fbd108267430060512a4b5a07eca6c86f75
+Author: OpenAI <user@example.com>
+Date:   Mon Aug 25 06:36:47 2025 +0000
+
+    Local modifications: add setup.py, update dev requirements, add tests, update CI
+
+diff --git a/.flake8 b/.flake8
+new file mode 100644
+index 0000000..f0ae3a0
+--- /dev/null
++++ b/.flake8
+@@ -0,0 +1,16 @@
++[flake8]
++max-line-length = 120
++extend-ignore = E203, W503
++exclude =
++    .git,
++    __pycache__,
++    build,
++    dist,
++    venv,
++    .venv,
++    .mypy_cache,
++    .pytest_cache,
++    .ruff_cache,
++    node_modules,
++    static,
++    templates
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..dfe0770
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1,2 @@
++# Auto detect text files and perform LF normalization
++* text=auto
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..bff691a
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,54 @@
++name: CI
++
++on:
++  push:
++    branches: [ main ]
++  pull_request:
++
++jobs:
++  test-and-lint:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.11'
++
++      - name: Install dependencies
++        run: |
++          python -m pip install -U pip
++          # Install dev dependencies if the file exists
++          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
++          # Install runtime dependencies if the file exists
++          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
++          # Install additional tools
++          python -m pip install flake8 mypy pytest types-ujson types-PyYAML || true
++
++      - name: Install package
++        run: |
++          pip install -e .
++
++      - name: Show versions
++        run: |
++          python --version
++          pip --version
++          flake8 --version || true
++          mypy --version || true
++          pytest --version || true
++
++      - name: Lint (flake8)
++        run: |
++          flake8 . --max-line-length=120 --extend-ignore=E203,W503
++
++      - name: Type check (mypy)
++        run: |
++          mypy . --install-types --non-interactive
++
++      - name: Test
++        run: |
++          pytest -q
++
++      - name: Check outdated dependencies
++        run: |
++          pip list --outdated || true
+\ No newline at end of file
+diff --git a/.github/workflows/pre-commit.yml b/.github/workflows/pre-commit.yml
+new file mode 100644
+index 0000000..f3f2dfe
+--- /dev/null
++++ b/.github/workflows/pre-commit.yml
+@@ -0,0 +1,21 @@
++name: pre-commit
++on:
++  push:
++    branches: [ main ]
++  pull_request:
++
++jobs:
++  pre-commit:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.11'
++      - name: Install system deps (if any hooks need them)
++        run: |
++          python -m pip install -U pip
++          # Install whatever hooks will need at runtime:
++          python -m pip install pre-commit flake8 mypy types-ujson types-PyYAML codespell
++      - name: Run pre-commit
++        uses: pre-commit/action@v3.0.1
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+new file mode 100644
+index 0000000..67e5b63
+--- /dev/null
++++ b/.github/workflows/release.yml
+@@ -0,0 +1,27 @@
++name: Release
++on:
++  push:
++    tags:
++      - 'v*.*.*'
++jobs:
++  build-release:
++    runs-on: ubuntu-latest
++    # Grant the GITHUB_TOKEN permission to create and update releases.
++    permissions:
++      contents: write
++    steps:
++      - uses: actions/checkout@v4
++      - name: Build zip
++        run: zip -r CueBeam-${{ github.ref_name }}.zip . -x ".git/*"
++      - name: Create release
++        uses: softprops/action-gh-release@v2
++        with:
++          files: CueBeam-${{ github.ref_name }}.zip
++          generate_release_notes: true
++          # Use the default GITHUB_TOKEN provided by GitHub Actions.  The
++          # permissions above grant write access to create and update
++          # releases.  If you experience "Resource not accessible by
++          # integration" errors, generate a personal access token with
++          # ``repo`` scope, add it as a secret (e.g. GH_PAT), and use
++          # ``token: ${{ secrets.GH_PAT }}`` instead.
++          token: ${{ github.token }}
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..294da9c
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,10 @@
++__pycache__/
++*.pyc
++.venv/
++*.log
++/media/*
++!/media/idle/
++!/media/events/
++!/media/random/
++/playlists/*
++!/playlists/current.m3u
+diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml
+new file mode 100644
+index 0000000..aa9617c
+--- /dev/null
++++ b/.pre-commit-config.yaml
+@@ -0,0 +1,33 @@
++repos:
++  - repo: https://github.com/pre-commit/pre-commit-hooks
++    rev: v4.6.0
++    hooks:
++      - id: trailing-whitespace
++      - id: end-of-file-fixer
++      - id: check-yaml
++      - id: check-json
++      - id: check-toml
++      - id: mixed-line-ending
++      - id: detect-private-key
++
++  - repo: https://github.com/codespell-project/codespell
++    rev: v2.3.0
++    hooks:
++      - id: codespell
++        args: [--ignore-words-list=fo,ba]
++        additional_dependencies: []
++
++  # Keep using flake8 (CI uses it) with the project setup.cfg
++  - repo: https://github.com/pycqa/flake8
++    rev: 7.1.1
++    hooks:
++      - id: flake8
++
++  # Run mypy via pre-commit to catch type issues locally as well
++  - repo: https://github.com/pre-commit/mirrors-mypy
++    rev: v1.11.2
++    hooks:
++      - id: mypy
++        additional_dependencies:
++          - types-ujson
++          - types-PyYAML
+diff --git a/CONTRIBUTING_CI_NOTES.md b/CONTRIBUTING_CI_NOTES.md
+new file mode 100644
+index 0000000..66bf0de
+--- /dev/null
++++ b/CONTRIBUTING_CI_NOTES.md
+@@ -0,0 +1,24 @@
++# Contributing / Local Checks
++
++## One-time setup
++```bash
++pip install -r requirements.txt
++pip install -r requirements-dev.txt  # if present
++pip install pre-commit
++pre-commit install
++```
++
++## Running checks
++```bash
++# Run all pre-commit hooks against the whole repo
++pre-commit run --all-files
++
++# Or run individually
++flake8 .
++mypy . --install-types --non-interactive
++```
++
++## CI policy
++- Flake8 max line length: **120**
++- E203/W503 ignored for compatibility with modern formatters
++- mypy is configured to be lenient (`ignore_missing_imports = True`) while the codebase iterates
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..d1e1072
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1 @@
++MIT License
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..06b2d4b
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,140 @@
++# CueBeam
++
++[![CI](https://github.com/NicholasTracy/CueBeam/actions/workflows/python-app.yml/badge.svg)](https://github.com/NicholasTracy/CueBeam/actions/workflows/python-app.yml)
++[![pre-commit](https://github.com/NicholasTracy/CueBeam/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/NicholasTracy/CueBeam/actions/workflows/pre-commit.yml)
++
++CueBeam is a lightweight **media cue playback system** designed for **Raspberry Pi** (and other Linux SBCs) that gives you gapless, automated video playback with a simple **web interface**.
++
++Think of it as a remote-controlled, always-on media player appliance — ideal for events, kiosks, installations, or stage productions.
++
++---
++
++## ✨ Features
++
++- 🎥 Gapless video playback using **MPV**
++- 🌐 Web UI (FastAPI + WebSockets)
++- 📡 REST API for automation
++- 🎛️ Cue-based control system
++- 🔌 GPIO + Art-Net + sACN input triggers
++- 🔊 Bluetooth A2DP pairing & auto-reconnect
++- ⚡ Lightweight, runs on Raspberry Pi
++
++---
++
++## 🚀 Quick Install (One-Liner)
++
++On a fresh Raspberry Pi OS:
++
++```bash
++curl -sSL https://raw.githubusercontent.com/NicholasTracy/CueBeam/main/install.sh | bash
++```
++
++This will:
++- Install dependencies
++- Clone CueBeam
++- Create a Python venv
++- Install requirements
++- Set up systemd service
++
++Once done, CueBeam is live at:
++
++👉 `http://<pi-ip>:8080`
++
++---
++
++## 🛠 Manual Install
++
++If you prefer manual setup:
++
++```bash
++sudo apt update && sudo apt upgrade -y
++sudo apt install -y python3 python3-venv python3-dev git mpv ffmpeg \
++    bluetooth bluez bluez-tools python3-rpi.gpio python3-gpiozero
++
++git clone https://github.com/NicholasTracy/CueBeam.git
++cd CueBeam
++python3 -m venv venv
++source venv/bin/activate
++pip install -r requirements.txt
++
++uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
++```
++
++---
++
++## ▶️ Usage
++
++- Open browser to: `http://<pi-ip>:8080`
++- Drag & drop media files into the `media/` folder
++- Control via:
++  - Web UI
++  - REST API
++  - WebSocket status feed
++  - Triggers (GPIO / Art-Net / sACN / Bluetooth)
++
++---
++
++## 📡 API (FastAPI)
++
++Interactive docs at:
++
++👉 `http://<pi-ip>:8080/docs`
++
++---
++
++## 🔄 Updating CueBeam
++
++```bash
++cd ~/CueBeam
++git pull
++source venv/bin/activate
++pip install -r requirements.txt
++sudo systemctl restart cuebeam
++```
++
++---
++
++## 🧪 Testing
++
++```bash
++pytest
++```
++
++---
++
++## 📦 Project Layout
++
++In the reorganised structure, all Python modules live inside a
++`src/cuebeam` package.  This keeps the repository root clean and
++prevents accidental imports from the working directory when the
++project is installed in editable mode.
++
++```
++CueBeam/
++├── src/
++│   └── cuebeam/
++│       ├── __init__.py   # exposes PlaybackManager and ControlManager
++│       ├── bt.py         # Bluetooth utilities
++│       ├── control.py    # Cue and trigger handling
++│       ├── playback.py   # Playback engine
++│       └── web/
++│           ├── __init__.py
++│           ├── app.py    # FastAPI application factory and routes
++│           └── asgi.py   # ASGI entrypoint for Uvicorn
++├── install.sh          # One‑line installer script
++├── scripts/install.sh  # Detailed install script used by developers
++├── config/             # Default configuration YAML
++├── playlists/          # Stores the current playlist
++├── static/             # CSS/JS assets (dark responsive theme)
++├── templates/          # HTML templates for the web UI
++└── systemd/            # systemd service unit
++```
++
++Note: the root‑level `cuebeam` directory from earlier versions has
++been removed.  Use `src/cuebeam` as the canonical import path.
++
++---
++
++## 📝 License
++
++GPLv3 — free to use, modify, and share.
+diff --git a/RELEASE_NOTES.md b/RELEASE_NOTES.md
+new file mode 100644
+index 0000000..c224f77
+--- /dev/null
++++ b/RELEASE_NOTES.md
+@@ -0,0 +1,12 @@
++# CueBeam v0.1.1
++
++## Fixes
++- Pin `python-mpv==1.0.8` (valid on PyPI)
++- Use correct DMX library name `sacn==1.11.0`
++- PEP8 cleanup across Python modules for flake8 compliance
++- CI installs `mpv` before Python deps
++
++## Features
++- WebSocket `/ws/status` live status feed
++- Bluetooth scan, pair/trust/connect and preferred device auto-connect
++- GPIO / Art-Net / sACN triggers with thresholds and debounce
+diff --git a/VERSION b/VERSION
+new file mode 100644
+index 0000000..17e51c3
+--- /dev/null
++++ b/VERSION
+@@ -0,0 +1 @@
++0.1.1
+diff --git a/config/config.yaml b/config/config.yaml
+new file mode 100644
+index 0000000..92c1186
+--- /dev/null
++++ b/config/config.yaml
+@@ -0,0 +1,10 @@
++idle_to_random_seconds: 60
++daily_shutdown_time: ""
++mpv_flags: []
++audio_output_device: ""
++trigger_source: "gpio"
++gpio: { pin: 17, pull: "up", edge: "falling", debounce_ms: 50 }
++artnet: { listen_host: "0.0.0.0", port: 6454, universe: 0, channel: 1, threshold: 128 }
++sacn:   { universe: 1, channel: 1, threshold: 128 }
++bluetooth: { preferred_mac: "", scan_seconds: 8 }
++auth: { enabled: false, cookie_secret: "" }
+diff --git a/install.sh b/install.sh
+new file mode 100644
+index 0000000..c026f4b
+--- /dev/null
++++ b/install.sh
+@@ -0,0 +1,75 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++APP_NAME="CueBeam"
++# Replace with your username before committing:
++# Use the maintainer’s GitHub account by default.  Replace the username
++# if you are hosting your own fork.
++REPO_URL="https://github.com/NicholasTracy/CueBeam.git"
++APP_DIR="/home/pi/CueBeam"
++PY="/usr/bin/python3"
++
++echo "==> Updating apt and installing system packages"
++sudo apt update
++sudo apt install -y \
++  python3 python3-venv python3-dev git mpv ffmpeg \
++  bluetooth bluez bluez-tools python3-rpi.gpio python3-gpiozero \
++  libmpv2 || sudo apt install -y libmpv1
++
++echo "==> Cloning or updating repository"
++if [[ ! -d "$APP_DIR/.git" ]]; then
++  sudo rm -rf "$APP_DIR"
++  git clone "$REPO_URL" "$APP_DIR"
++else
++  (cd "$APP_DIR" && git pull --ff-only)
++fi
++
++echo "==> Creating media directories"
++mkdir -p "$APP_DIR/media/idle" "$APP_DIR/media/event" "$APP_DIR/media/random"
++sudo chown -R pi:pi "$APP_DIR/media"
++
++echo "==> Creating Python venv and installing requirements"
++cd "$APP_DIR"
++if [[ ! -d venv ]]; then
++  "$PY" -m venv venv
++fi
++# shellcheck disable=SC1091
++source venv/bin/activate
++python -m pip install -U pip wheel setuptools
++pip install -r requirements.txt || true
++pip install \
++  fastapi "uvicorn[standard]" jinja2 python-multipart \
++  websockets ujson pyyaml mpv
++
++echo "==> Installing systemd service"
++sudo tee /etc/systemd/system/cuebeam.service >/dev/null <<'UNIT'
++[Unit]
++Description=CueBeam Media Playback Server
++After=network-online.target
++Wants=network-online.target
++
++[Service]
++User=pi
++WorkingDirectory=/home/pi/CueBeam
++Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf
++# Point uvicorn to the new ASGI entrypoint.  ``--app-dir src`` adds the
++# ``src`` directory to the Python module search path so that the
++# ``cuebeam`` package can be found.  See ``src/cuebeam/web/asgi.py``.
++ExecStart=/home/pi/CueBeam/venv/bin/uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
++Restart=always
++RestartSec=2
++
++[Install]
++WantedBy=multi-user.target
++UNIT
++
++echo "==> Enabling and starting service"
++sudo systemctl daemon-reload
++sudo systemctl enable cuebeam
++sudo systemctl restart cuebeam
++
++echo "==> Checking service status"
++sleep 2
++sudo systemctl --no-pager -l status cuebeam || true
++
++echo "==> Done. Open: http://<pi-ip>:8080"
+diff --git a/playlists/current.m3u b/playlists/current.m3u
+new file mode 100644
+index 0000000..e69de29
+diff --git a/requirements-dev.txt b/requirements-dev.txt
+new file mode 100644
+index 0000000..e96bb63
+--- /dev/null
++++ b/requirements-dev.txt
+@@ -0,0 +1,7 @@
++# Development dependencies for linting, type checking, and testing
++flake8
++mypy
++types-PyYAML
++pytest
++fastapi
++httpx
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..88948ec
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,10 @@
++fastapi==0.115.0
++uvicorn==0.30.6
++jinja2==3.1.4
++ujson==5.10.0
++pyyaml==6.0.2
++python-multipart==0.0.9
++websockets==12.0
++mpv==1.0.8
++gpiozero==2.0.1
++APScheduler==3.11.0
+diff --git a/scripts/install.sh b/scripts/install.sh
+new file mode 100644
+index 0000000..60f8269
+--- /dev/null
++++ b/scripts/install.sh
+@@ -0,0 +1,67 @@
++
++#!/usr/bin/env bash
++set -euo pipefail
++
++REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
++cd "$REPO_DIR"
++USER_NAME="${SUDO_USER:-$USER}"
++
++echo "[1/6] Installing apt packages..."
++sudo apt-get update
++sudo apt-get install -y   python3-full python3-venv python3-pip   mpv libmpv1   pigpio python3-pigpio   bluez bluez-tools   unzip curl
++
++echo "[2/6] Enabling pigpio + Bluetooth daemons..."
++sudo systemctl enable --now pigpiod
++sudo systemctl enable --now bluetooth
++
++echo "[3/6] Creating virtualenv (with system site packages)..."
++if [ ! -d .venv ]; then
++  python3 -m venv --system-site-packages .venv
++fi
++source .venv/bin/activate
++python -m pip install -U pip setuptools wheel
++
++echo "[4/6] Installing Python requirements..."
++grep -q '^python-multipart' requirements.txt || echo 'python-multipart>=0.0.9' >> requirements.txt
++python -m pip install -r requirements.txt
++
++echo "[5/6] Creating folders and default config..."
++mkdir -p media/{idle,events,random} playlists logs config
++if [ ! -s config/config.yaml ]; then
++  cat > config/config.yaml <<'YAML'
++idle_to_random_seconds: 60
++daily_shutdown_time: ""
++mpv_flags: []
++audio_output_device: ""
++trigger_source: "gpio"
++gpio: { pin: 17, pull: "up", edge: "falling", debounce_ms: 50 }
++artnet: { listen_host: "0.0.0.0", port: 6454, universe: 0, channel: 1, threshold: 128 }
++sacn:   { universe: 1, channel: 1, threshold: 128 }
++bluetooth: { preferred_mac: "", scan_seconds: 8 }
++auth: { enabled: false, cookie_secret: "" }
++YAML
++fi
++
++echo "[6/6] Installing systemd service..."
++sudo tee /etc/systemd/system/cuebeam.service >/dev/null <<EOF
++[Unit]
++Description=CueBeam media controller
++After=network-online.target bluetooth.service pigpiod.service
++Wants=network-online.target
++
++[Service]
++User=${USER_NAME}
++WorkingDirectory=${REPO_DIR}
++Environment=GPIOZERO_PIN_FACTORY=pigpio
++ExecStart=${REPO_DIR}/.venv/bin/uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
++Restart=always
++RestartSec=2
++StandardOutput=journal
++StandardError=journal
++
++[Install]
++WantedBy=multi-user.target
++EOF
++
++sudo systemctl daemon-reload
++echo "Install complete. Start with: sudo systemctl enable --now cuebeam.service"
+diff --git a/setup.cfg b/setup.cfg
+new file mode 100644
+index 0000000..45f0e26
+--- /dev/null
++++ b/setup.cfg
+@@ -0,0 +1,31 @@
++[flake8]
++max-line-length = 120
++extend-ignore = E203, W503
++exclude =
++    .git,
++    __pycache__,
++    build,
++    dist,
++    venv,
++    .venv,
++    .mypy_cache,
++    .pytest_cache,
++    .ruff_cache,
++    node_modules,
++    static,
++    templates
++
++[mypy]
++python_version = 3.11
++# Keep imports lenient because these third-party libs don't ship types
++ignore_missing_imports = True
++install_types = True
++non_interactive = True
++# Turn general errors back on; no global disables
++check_untyped_defs = False
++warn_unused_ignores = False
++warn_return_any = False
++
++# Re-enable checks for the web app module (no ignore_errors)
++[mypy-src.cuebeam.web.app]
++# leave empty to inherit global settings
+diff --git a/setup.py b/setup.py
+new file mode 100644
+index 0000000..2ed3f20
+--- /dev/null
++++ b/setup.py
+@@ -0,0 +1,9 @@
++from setuptools import setup, find_packages
++
++
++setup(
++    name="cuebeam",
++    version="0.1.0",
++    packages=find_packages(where="src"),
++    package_dir={"": "src"},
++)
+diff --git a/src/cuebeam/__init__.py b/src/cuebeam/__init__.py
+new file mode 100644
+index 0000000..7ba222d
+--- /dev/null
++++ b/src/cuebeam/__init__.py
+@@ -0,0 +1,17 @@
++"""
++CueBeam package root.
++
++This namespace exposes the primary classes and factory functions for
++CueBeam.  Import :class:`PlaybackManager` and :class:`ControlManager`
++from here to manage media playback and triggers, and use
++``from cuebeam.web import make_app`` to construct the FastAPI
++application.
++"""
++
++from .playback import PlaybackManager  # noqa: F401
++from .control import ControlManager  # noqa: F401
++
++__all__ = [
++    "PlaybackManager",
++    "ControlManager",
++]
+diff --git a/src/cuebeam/bt.py b/src/cuebeam/bt.py
+new file mode 100644
+index 0000000..7e80367
+--- /dev/null
++++ b/src/cuebeam/bt.py
+@@ -0,0 +1,67 @@
++"""
++Bluetooth helper functions for CueBeam.
++
++This module wraps the ``bluetoothctl`` CLI commands to scan for devices,
++pair and trust, and ensure a connection.  In a future release these
++functions should be replaced with a proper D‑Bus interface for better
++robustness and error handling.
++"""
++
++import subprocess
++from typing import List, Dict
++
++
++def _run(cmd: list[str]) -> str:
++    res = subprocess.run(
++        cmd,
++        stdout=subprocess.PIPE,
++        stderr=subprocess.STDOUT,
++        text=True,
++        check=False,
++    )
++    return res.stdout
++
++
++def scan(timeout_sec: int = 8) -> List[Dict[str, str]]:
++    """Scan for Bluetooth devices.
++
++    Returns a list of dicts with keys ``mac`` and ``name``.
++    """
++    _run(["bluetoothctl", "--timeout", str(timeout_sec), "scan", "on"])
++    out = _run(["bluetoothctl", "devices"])
++    devices = []
++    for line in out.splitlines():
++        parts = line.strip().split(" ", 2)
++        if len(parts) >= 3 and parts[0] == "Device":
++            mac = parts[1]
++            name = parts[2]
++            devices.append({"mac": mac, "name": name})
++    return devices
++
++
++def pair_trust_connect(mac: str) -> bool:
++    """Pair, trust and connect to a device given its MAC address."""
++    mac = mac.strip()
++    if not mac:
++        return False
++    _run(["bluetoothctl", "power", "on"])
++    _run(["bluetoothctl", "agent", "on"])
++    _run(["bluetoothctl", "default-agent"])
++    _run(["bluetoothctl", "pair", mac])
++    _run(["bluetoothctl", "trust", mac])
++    out = _run(["bluetoothctl", "connect", mac])
++    info = _run(["bluetoothctl", "info", mac])
++    return "Connection successful" in out or "Connected: yes" in info
++
++
++def ensure_connected(mac: str) -> bool:
++    """Ensure a device is connected.  Attempt to connect if disconnected."""
++    mac = mac.strip()
++    if not mac:
++        return False
++    info = _run(["bluetoothctl", "info", mac])
++    if "Connected: yes" in info:
++        return True
++    out = _run(["bluetoothctl", "connect", mac])
++    info2 = _run(["bluetoothctl", "info", mac])
++    return "Connection successful" in out or "Connected: yes" in info2
+diff --git a/src/cuebeam/control.py b/src/cuebeam/control.py
+new file mode 100644
+index 0000000..72bb2c4
+--- /dev/null
++++ b/src/cuebeam/control.py
+@@ -0,0 +1,78 @@
++"""
++Trigger controller for CueBeam.
++
++This module implements ``ControlManager`` which monitors external triggers
++(GPIO, Art‑Net, sACN) and calls a callback when an event is detected.  It
++uses structured logging instead of ``print`` for observability.
++"""
++
++from typing import Callable, Any, Dict
++import logging
++
++
++class ControlManager:
++    def __init__(self, cfg: Dict[str, Any], on_event: Callable[[], None]) -> None:
++        self.cfg = cfg
++        self._on_event = on_event
++        self._gpio_button = None
++        # Each instance uses its own logger derived from the module name for
++        # consistent logging.  Avoid using print statements; logging provides
++        # timestamps, severity levels and better configurability【690924082245555†L52-L120】.
++        self.logger = logging.getLogger(__name__)
++
++    def start(self) -> None:
++        """Start listening for events based on the configured trigger source."""
++        src = (self.cfg.get("trigger_source") or "gpio").lower()
++        if src == "gpio":
++            self._start_gpio()
++        elif src == "artnet":
++            self._start_artnet()
++        elif src == "sacn":
++            self._start_sacn()
++        else:
++            self.logger.warning("Unknown trigger_source: %s", src)
++
++    def _on_trigger(self) -> None:
++        try:
++            self._on_event()
++        except Exception as exc:
++            # Log the exception; retain traceback for debugging
++            self.logger.exception("Exception in trigger handler: %s", exc)
++
++    def _start_gpio(self) -> None:
++        try:
++            from gpiozero import Button
++
++            g = self.cfg.get("gpio") or {}
++            pin = int(g.get("pin", 17))
++            pull_up = (g.get("pull", "up").lower() == "up")
++            bounce_s = float(g.get("debounce_ms", 50)) / 1000.0
++            edge = g.get("edge", "falling").lower()
++
++            btn = Button(pin, pull_up=pull_up, bounce_time=bounce_s or None)
++
++            if edge == "rising":
++                btn.when_pressed = self._on_trigger
++            elif edge == "both":
++                btn.when_pressed = self._on_trigger
++                btn.when_released = self._on_trigger
++            else:
++                btn.when_released = self._on_trigger
++
++            self._gpio_button = btn
++            self.logger.info(
++                "[GPIO] listening on BCM %s (%s) edge=%s",
++                pin,
++                "pull_up" if pull_up else "pull_down",
++                edge,
++            )
++        except Exception as exc:
++            self.logger.warning("GPIO disabled: %s", exc)
++
++    def _start_artnet(self) -> None:
++        # Stub implementation; log instead of printing
++        self.logger.info("[ArtNet] listener enabled (stub)")
++
++    def _start_sacn(self) -> None:
++        # Stub implementation; log instead of printing
++        self.logger.info("[sACN] listener enabled (stub)")
+diff --git a/src/cuebeam/playback.py b/src/cuebeam/playback.py
+new file mode 100644
+index 0000000..53db959
+--- /dev/null
++++ b/src/cuebeam/playback.py
+@@ -0,0 +1,522 @@
++"""
++Playback management for CueBeam.
++
++This module provides the :class:`PlaybackManager` class which wraps the
++``mpv`` media player and offers methods to start idle playback, trigger
++event/random clips and query or modify playback state.  Paths for
++media, playlists and configuration are resolved relative to the project
++root so that the package can live under a ``src`` directory without
++requiring the repository root to be on the import path.
++
++Key improvements over earlier versions:
++
++* All logging is performed via the :mod:`logging` module rather than
++  ``print`` statements.  Structured logging provides timestamps,
++  severity levels and configurability【690924082245555†L52-L120】.
++* Uploaded filenames are sanitised in the web layer to prevent
++  directory traversal; see :mod:`cuebeam.web.app`.
++* The project root is computed dynamically, ensuring that media and
++  config paths resolve correctly when the package is installed in a
++  subdirectory.
++"""
++
++from __future__ import annotations
++
++import logging
++import os
++import random
++import threading
++import time
++from pathlib import Path
++from typing import Dict, Any, List, Optional
++
++import yaml
++from apscheduler.schedulers.background import BackgroundScheduler
++from mpv import MPV
++
++from .bt import ensure_connected
++
++# Obtain a module‑level logger.  Clients can configure the root logger
++# elsewhere to control formatting and output.  Never use ``print`` here.
++logger = logging.getLogger(__name__)
++
++# Compute the project root two levels up from this file.  ``__file__``
++# points at ``src/cuebeam/playback.py``; parents[0] is ``src/cuebeam``,
++# parents[1] is ``src`` and parents[2] is the repository root.
++PROJECT_ROOT = Path(__file__).resolve().parents[2]
++
++# Define common directories relative to the project root.  These
++# directories are created on demand when the manager is instantiated.
++MEDIA_DIR = PROJECT_ROOT / "media"
++PLAYLISTS_DIR = PROJECT_ROOT / "playlists"
++CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
++
++IDLE_DIR = MEDIA_DIR / "idle"
++EVENTS_DIR = MEDIA_DIR / "events"
++RANDOM_DIR = MEDIA_DIR / "random"
++CURRENT_M3U = PLAYLISTS_DIR / "current.m3u"
++
++
++class PlaybackManager:
++    """Manages media playback using ``mpv``.
++
++    The manager maintains a minimal internal state (last event
++    timestamp, whether random mode is active, current playing path and
++    pause status).  It exposes methods to start playback, inject event
++    and random clips, toggle pause and skip to the next item.  A
++    background idle monitor thread injects random clips after a period
++    of inactivity.
++    """
++
++    def __init__(self) -> None:
++        # Load or create configuration
++        self._load_config()
++        # Protect mutable state across threads
++        self._lock = threading.RLock()
++        self._state: Dict[str, Any] = {
++            "last_event_ts": 0.0,
++            "last_random_injected_ts": 0.0,
++            "in_random_mode": False,
++            "current_path": "",
++            "is_paused": False,
++        }
++
++        # Background scheduler for daily shutdown
++        self._scheduler = BackgroundScheduler()
++        self._scheduler.start()
++        self._apply_shutdown_schedule()
++
++        # Initialise mpv player with configured audio output and flags
++        flags: List[str] = self.cfg.get("mpv_flags", []) or []
++        ao = self.cfg.get("audio_output_device") or None
++        self.mpv = MPV(ao=ao, ytdl=False)
++
++        # Do not set a global loop-playlist here.  The idle loop is enabled
++        # explicitly in ``start()`` and disabled when event or random clips
++        # are injected.  A global infinite loop across the entire playlist
++        # would cause event or random clips to repeat indefinitely.
++
++        # Apply mpv flags.  Unknown options are ignored gracefully.
++        for f in flags:
++            f = (f or "").strip()
++            if not f:
++                continue
++            key, _, val = f.partition("=")
++            key = key.lstrip("-").replace("-", "_")
++            try:
++                if val:
++                    # Convert some common boolean/int strings
++                    v_obj: object = val
++                    if val.isdigit():
++                        v_obj = int(val)
++                    elif val.lower() in ("yes", "true", "on"):
++                        v_obj = "yes"
++                    elif val.lower() in ("no", "false", "off"):
++                        v_obj = "no"
++                    self.mpv.command("set", key, v_obj)
++                else:
++                    self.mpv.command("set", key, "yes")
++            except Exception:
++                # Fallback to set_property if command fails
++                try:
++                    if val:
++                        self.mpv.set_property(key, val)
++                    else:
++                        self.mpv.set_property(key, True)
++                except Exception:
++                    logger.warning("ignoring unknown mpv option: %s", f)
++
++        # Install hooks to track the currently playing file
++        self._install_mpv_hooks()
++
++        # Ensure necessary directories exist
++        PLAYLISTS_DIR.mkdir(parents=True, exist_ok=True)
++        for d in (MEDIA_DIR, IDLE_DIR, EVENTS_DIR, RANDOM_DIR):
++            d.mkdir(parents=True, exist_ok=True)
++
++        # Initialise an empty playlist file if none exists
++        if not CURRENT_M3U.exists():
++            CURRENT_M3U.write_text("", encoding="utf-8")
++
++        # Attempt to connect to preferred Bluetooth device
++        pref = (self.cfg.get("bluetooth") or {}).get("preferred_mac", "").strip()
++        if pref:
++            try:
++                _ = ensure_connected(pref)
++            except Exception as exc:  # noqa: BLE001
++                logger.warning("Bluetooth connection failed: %s", exc)
++
++        # Start background idle monitor thread
++        threading.Thread(target=self._idle_monitor_loop, daemon=True).start()
++
++    # ------------------------------------------------------------------
++    # Configuration handling
++    def _load_config(self) -> None:
++        """Load configuration from ``config.yaml`` or create defaults."""
++        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
++        if not CONFIG_PATH.exists():
++            CONFIG_PATH.write_text(
++                "idle_to_random_seconds: 60\n"
++                'daily_shutdown_time: ""\n'
++                "mpv_flags: []\n"
++                'audio_output_device: ""\n'
++                'trigger_source: "gpio"\n',
++                encoding="utf-8",
++            )
++        self.cfg = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
++
++        # Populate defaults
++        self.cfg.setdefault("idle_to_random_seconds", 60)
++        self.cfg.setdefault("daily_shutdown_time", "")
++        self.cfg.setdefault("mpv_flags", [])
++        self.cfg.setdefault("audio_output_device", "")
++        self.cfg.setdefault("trigger_source", "gpio")
++        self.cfg.setdefault(
++            "gpio",
++            {"pin": 17, "pull": "up", "edge": "falling", "debounce_ms": 50},
++        )
++        self.cfg.setdefault(
++            "artnet",
++            {
++                "listen_host": "0.0.0.0",
++                "port": 6454,
++                "universe": 0,
++                "channel": 1,
++                "threshold": 128,
++            },
++        )
++        self.cfg.setdefault("sacn", {"universe": 1, "channel": 1, "threshold": 128})
++        self.cfg.setdefault("bluetooth", {"preferred_mac": "", "scan_seconds": 8})
++        self.cfg.setdefault("auth", {"enabled": False})
++
++    def reload_config(self) -> None:
++        """Reload the configuration file and apply changes."""
++        with self._lock:
++            self._load_config()
++            self._apply_shutdown_schedule()
++
++    def _apply_shutdown_schedule(self) -> None:
++        """Schedule a daily shutdown if ``daily_shutdown_time`` is set."""
++        # Remove any existing job
++        for job in self._scheduler.get_jobs():
++            if job.id == "daily_shutdown":
++                self._scheduler.remove_job(job.id)
++
++        t = (self.cfg.get("daily_shutdown_time") or "").strip()
++        if t:
++            try:
++                hh, mm = [int(x) for x in t.split(":", 1)]
++            except ValueError:
++                logger.warning("Invalid daily_shutdown_time: %s", t)
++                return
++            self._scheduler.add_job(
++                self.shutdown_pi,
++                "cron",
++                hour=hh,
++                minute=mm,
++                id="daily_shutdown",
++            )
++
++    # ------------------------------------------------------------------
++    # mpv hooks and helpers
++    def _install_mpv_hooks(self) -> None:
++        """Install hooks to update playback state when the path changes."""
++        try:
++            # If mpv supports property observers (python-mpv >= 1.0)
++            @self.mpv.property_observer("path")  # type: ignore[no-redef]
++            def _on_path(_name, val) -> None:
++                path_str = str(val) if val else ""
++                with self._lock:
++                    self._state["current_path"] = path_str
++                    if path_str.startswith(str(RANDOM_DIR)):
++                        self._state["in_random_mode"] = True
++                    elif path_str.startswith(str(IDLE_DIR)):
++                        self._state["in_random_mode"] = False
++        except AttributeError:
++            # Fallback: poll the ``path`` property periodically
++            def _poll_loop() -> None:
++                last = ""
++                while True:
++                    try:
++                        cur = str(getattr(self.mpv, "path", "") or "")
++                    except Exception:
++                        cur = ""
++                    if cur != last:
++                        with self._lock:
++                            self._state["current_path"] = cur
++                            if cur.startswith(str(RANDOM_DIR)):
++                                self._state["in_random_mode"] = True
++                            elif cur.startswith(str(IDLE_DIR)):
++                                self._state["in_random_mode"] = False
++                        last = cur
++                    time.sleep(0.5)
++            threading.Thread(target=_poll_loop, daemon=True).start()
++
++    def _write_m3u(self, items: List[str]) -> None:
++        tmp = CURRENT_M3U.with_suffix(".tmp")
++        text = "\n".join(items) + ("\n" if items else "")
++        tmp.write_text(text, encoding="utf-8")
++        tmp.replace(CURRENT_M3U)
++
++    def _read_m3u(self) -> List[str]:
++        if not CURRENT_M3U.exists():
++            return []
++        lines = CURRENT_M3U.read_text(encoding="utf-8").splitlines()
++        return [line.strip() for line in lines if line.strip()]
++
++    def _clear_playlist(self) -> None:
++        try:
++            self.mpv.command("playlist-clear")
++        except Exception:
++            pass
++        self._write_m3u([])
++
++    def _random_file(self, folder: Path) -> Optional[Path]:
++        vids = [p for p in folder.iterdir() if p.is_file()]
++        return random.choice(vids) if vids else None
++
++    def _rebuild_mpv_playlist(self, items: List[str]) -> None:
++        cur = ""
++        try:
++            cur = str(getattr(self.mpv, "path", "") or "")
++        except Exception:
++            pass
++        # Clear mpv's internal playlist and repopulate
++        self.mpv.command("playlist-clear")
++        for it in items:
++            self.mpv.command("loadfile", it, "append-play")
++        # If the previous current item is still in the list, jump to it
++        if cur and cur in items:
++            idx = items.index(cur)
++            self.mpv.command("playlist-play-index", str(idx))
++        else:
++            self.mpv.command("playlist-play-index", "0")
++
++    # ------------------------------------------------------------------
++    # Public control methods
++    def start(self) -> None:
++        """Start playback by loading a random idle file."""
++        with self._lock:
++            idle = self._random_file(IDLE_DIR)
++            if not idle:
++                logger.warning("No idle files found in %s", IDLE_DIR)
++                return
++            # Clear playlist and start playing the idle clip
++            self._clear_playlist()
++            self.mpv.command("loadfile", str(idle), "append-play")
++            self._write_m3u([str(idle)])
++            # Enable infinite looping for the idle playlist
++            try:
++                self.mpv.command("set_property", "loop-playlist", "inf")
++            except Exception:
++                try:
++                    self.mpv.command("set", "loop-playlist", "inf")
++                except Exception:
++                    pass
++            self.mpv.pause = False
++
++    def trigger_event(self) -> bool:
++        """Inject an event clip into the playlist.
++
++        Returns ``True`` if a clip was injected, otherwise ``False`` (e.g. no
++        events available).  If a random clip is currently playing the
++        event is not injected.
++        """
++        with self._lock:
++            # Record the event timestamp
++            self._state["last_event_ts"] = float(time.time())
++            # Do not inject if a random clip is currently playing
++            if bool(self._state["in_random_mode"]):
++                return False
++            ev = self._random_file(EVENTS_DIR)
++            if not ev:
++                return False
++            idle = self._random_file(IDLE_DIR)
++            # Build a new playlist: event plays immediately, then idle
++            newlst: List[str] = [str(ev)]
++            if idle:
++                newlst.append(str(idle))
++            else:
++                logger.warning("No idle files available to follow event")
++            # Write the playlist file
++            self._write_m3u(newlst)
++            # Replace current playback with event and following idle
++            try:
++                # Clear existing playlist and load new items
++                self.mpv.command("playlist-clear")
++                for it in newlst:
++                    self.mpv.command("loadfile", it, "append-play")
++                # Start playing the first item (event) immediately
++                self.mpv.command("playlist-play-index", "0")
++                # Disable looping while event/random playlists are active
++                try:
++                    self.mpv.command("set_property", "loop-playlist", "no")
++                except Exception:
++                    try:
++                        self.mpv.command("set", "loop-playlist", "no")
++                    except Exception:
++                        pass
++            except Exception as exc:  # noqa: BLE001
++                logger.exception("Failed to inject event clip: %s", exc)
++                return False
++            # Reset random mode state
++            self._state["in_random_mode"] = False
++            return True
++
++    def trigger_random(self) -> bool:
++        """Inject a random clip into the playlist.
++
++        Returns ``True`` if a clip was injected, otherwise ``False``.
++        """
++        with self._lock:
++            rnd = self._random_file(RANDOM_DIR)
++            if not rnd:
++                return False
++            lst = self._read_m3u()
++            if not lst:
++                return False
++            idle = self._random_file(IDLE_DIR)
++            # Insert random clip after the currently playing idle, then return to idle
++            newlst: List[str] = [lst[0], str(rnd)]
++            if idle:
++                newlst.append(str(idle))
++            else:
++                logger.warning("No idle files available after random")
++            self._write_m3u(newlst)
++            # Rebuild mpv playlist and keep playing current idle until it ends
++            self._rebuild_mpv_playlist(newlst)
++            # Disable looping for the event/random playlist
++            try:
++                self.mpv.command("set_property", "loop-playlist", "no")
++            except Exception:
++                try:
++                    self.mpv.command("set", "loop-playlist", "no")
++                except Exception:
++                    pass
++            self._state["last_random_injected_ts"] = float(time.time())
++            return True
++
++    def pause_toggle(self) -> bool:
++        """Toggle playback pause/resume.
++
++        Returns the new pause state (``True`` if paused)."""
++        with self._lock:
++            paused = bool(self.mpv.pause)
++            self.mpv.pause = not paused
++            self._state["is_paused"] = bool(self.mpv.pause)
++            return bool(self._state["is_paused"])
++
++    def skip(self) -> bool:
++        """Skip to the next item in the playlist."""
++        try:
++            self.mpv.command("playlist-next", "force")
++            return True
++        except Exception:
++            return False
++
++    def shutdown_pi(self) -> None:
++        """Shutdown the Raspberry Pi immediately."""
++        os.system("sudo /sbin/shutdown -h now")
++
++    def reboot_pi(self) -> None:
++        """Reboot the Raspberry Pi immediately."""
++        os.system("sudo /sbin/reboot")
++
++    def status(self) -> Dict[str, Any]:
++        """Return a snapshot of the current playback state and configuration."""
++        with self._lock:
++            cur = str(self._state.get("current_path", ""))
++            category = ""
++            if cur:
++                if self._state.get("in_random_mode"):
++                    category = "random"
++                elif cur.startswith(str(IDLE_DIR)):
++                    category = "idle"
++                else:
++                    category = "event"
++            return {
++                "current_path": cur,
++                "current_basename": os.path.basename(cur) if cur else "",
++                "current_category": category,
++                "is_paused": bool(self._state.get("is_paused", False)),
++                "in_random_mode": bool(self._state.get("in_random_mode", False)),
++                "last_event_ts": float(self._state.get("last_event_ts", 0.0)),
++                "playlist": self._read_m3u(),
++                "audio_output_device": str(self.cfg.get("audio_output_device", "")),
++                "idle_to_random_seconds": int(
++                    self.cfg.get("idle_to_random_seconds", 60)
++                ),
++                "trigger_source": str(self.cfg.get("trigger_source", "gpio")),
++                "gpio": self.cfg.get("gpio", {}),
++                "artnet": self.cfg.get("artnet", {}),
++                "sacn": self.cfg.get("sacn", {}),
++            }
++
++    # ------------------------------------------------------------------
++    # Media scanning helpers
++    def reload_media(self) -> None:
++        """Reload media libraries.
++
++        This stub exists for API compatibility with earlier versions of
++        CueBeam.  In a future release this method could rescan the media
++        directories and rebuild playlists.  Currently it just reloads
++        configuration and clears cached random state.
++        """
++        with self._lock:
++            # Reset event and random timestamps so that the idle monitor
++            # will inject random clips after the configured interval.
++            self._state["last_event_ts"] = 0.0
++            self._state["last_random_injected_ts"] = 0.0
++            self.reload_config()
++
++    def ensure_idle_playing(self) -> None:
++        """Ensure that idle playback is active.
++
++        If nothing is playing or the current item is not from the idle
++        directory, this method will restart playback with a random idle
++        clip.
++        """
++        with self._lock:
++            cur = str(self._state.get("current_path", ""))
++            if not cur or not cur.startswith(str(IDLE_DIR)):
++                self.start()
++
++    def now_playing(self) -> Optional[str]:
++        """Return the full path of the currently playing file, if any."""
++        with self._lock:
++            return str(self._state.get("current_path")) or None
++
++    # ------------------------------------------------------------------
++    # Background idle monitor loop
++    def _idle_monitor_loop(self) -> None:
++        while True:
++            time.sleep(1.0)
++            try:
++                with self._lock:
++                    cur = str(self._state.get("current_path", ""))
++                    # If nothing is playing, restart idle playback
++                    if not cur:
++                        try:
++                            self.start()
++                        except Exception:
++                            pass
++                        continue
++                    # Skip random mode – do not inject additional clips
++                    if bool(self._state["in_random_mode"]):
++                        continue
++                    # Only inject random clips when idle has been playing for
++                    # the configured duration without recent events.
++                    wait_s = int(self.cfg.get("idle_to_random_seconds", 60))
++                    last_event = float(self._state["last_event_ts"])
++                    if cur.startswith(str(IDLE_DIR)):
++                        if float(time.time()) - last_event >= wait_s:
++                            recently = (
++                                float(time.time())
++                                - float(self._state.get("last_random_injected_ts", 0.0))
++                            )
++                            if recently >= max(5, wait_s // 2):
++                                # Attempt to inject a random clip; ignore result
++                                _ = self.trigger_random()
++            except Exception as exc:  # noqa: BLE001
++                # Log unexpected exceptions in the idle monitor loop
++                logger.exception("Error in idle monitor loop: %s", exc)
+diff --git a/src/cuebeam/web/__init__.py b/src/cuebeam/web/__init__.py
+new file mode 100644
+index 0000000..9d219aa
+--- /dev/null
++++ b/src/cuebeam/web/__init__.py
+@@ -0,0 +1,11 @@
++"""
++Web subpackage for CueBeam.
++
++This package exposes the FastAPI application factory and ASGI entrypoint.
++Use :func:`make_app` to construct an application instance bound to a
++``PlaybackManager``.
++"""
++
++from .app import make_app  # noqa: F401
++
++__all__ = ["make_app"]
+diff --git a/src/cuebeam/web/app.py b/src/cuebeam/web/app.py
+new file mode 100644
+index 0000000..61e2522
+--- /dev/null
++++ b/src/cuebeam/web/app.py
+@@ -0,0 +1,354 @@
++"""
++FastAPI application for CueBeam.
++
++This module defines :func:`make_app` which builds a FastAPI
++application bound to a :class:`~cuebeam.playback.PlaybackManager`.  The
++application serves a simple HTML status page, accepts media uploads and
++provides several JSON and WebSocket endpoints for controlling and
++monitoring playback.
++
++The project root is determined dynamically so that templates and static
++files are located correctly when the package resides under ``src``.
++Uploaded filenames are sanitised by taking only ``Path(file.filename).name``
++to prevent directory traversal attacks【714359060419038†L60-L69】.
++"""
++
++from __future__ import annotations
++
++import asyncio
++import logging
++import os
++import socket
++
++from pathlib import Path
++from typing import Optional
++
++from fastapi import (
++    FastAPI,
++    HTTPException,
++    Request,
++    UploadFile,
++    Form,
++    WebSocket,
++    WebSocketDisconnect,
++)
++from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
++from fastapi.staticfiles import StaticFiles
++from starlette.templating import Jinja2Templates
++
++from ..playback import PlaybackManager
++
++# Additional imports for configuration management and Bluetooth helpers
++import yaml
++from .. import bt
++
++
++# Module‑level logger
++logger = logging.getLogger(__name__)
++
++# Compute the project root three levels up (src/cuebeam/web/app.py -> web -> cuebeam -> src)
++PROJECT_ROOT = Path(__file__).resolve().parents[3]
++
++# Template and static directories relative to project root
++TEMPLATES = Jinja2Templates(directory=str(PROJECT_ROOT / "templates"))
++STATIC_DIR = PROJECT_ROOT / "static"
++
++# Path to the YAML configuration file.  Used when persisting settings.
++CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
++
++
++def make_app(manager: PlaybackManager) -> FastAPI:
++    """Create a FastAPI app bound to the given ``PlaybackManager``."""
++    app = FastAPI()
++
++    # Mount static file serving if the directory exists
++    if STATIC_DIR.exists():
++        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
++
++    @app.get("/", response_class=HTMLResponse)
++    async def index(request: Request):
++        """Render the index page with current status."""
++        status = manager.status()
++        return TEMPLATES.TemplateResponse(
++            "index.html",
++            {"request": request, "status": status},
++        )
++
++    @app.post("/upload")
++    async def upload(request: Request, file: UploadFile, target: str = Form("idle")):
++        """Handle an uploaded media file.
++
++        Files are stored under ``media/<target>``.  The ``target`` must be one
++        of ``idle``, ``events`` or ``random``.  Only the basename of the
++        uploaded filename is used to avoid path traversal【714359060419038†L60-L69】.
++        """
++        cats = {"idle", "events", "random"}
++        if target not in cats:
++            raise HTTPException(status_code=400, detail="Invalid target category")
++
++        dest_dir = PROJECT_ROOT / "media" / target
++        dest_dir.mkdir(parents=True, exist_ok=True)
++        # Sanitize filename
++        safe_name = Path(file.filename).name
++        dest_path = dest_dir / safe_name
++        try:
++            with dest_path.open("wb") as out_f:
++                content = await file.read()
++                out_f.write(content)
++        finally:
++            await file.close()
++
++        # After saving, reload media and ensure idle playback if necessary
++        try:
++            manager.reload_media()
++            if target == "idle":
++                manager.ensure_idle_playing()
++        except Exception as exc:  # noqa: BLE001
++            return JSONResponse(
++                {"ok": False, "message": f"Uploaded; reload failed: {exc}"},
++                status_code=202,
++            )
++
++        return RedirectResponse(url="/?msg=uploaded", status_code=303)
++
++    @app.post("/action")
++    async def action(cmd: str = Form(...)):
++        """Process a playback command from the UI form."""
++        try:
++            if cmd == "pause":
++                manager.pause_toggle()
++            elif cmd == "skip":
++                manager.skip()
++            elif cmd == "trigger_event":
++                manager.trigger_event()
++            elif cmd == "trigger_random":
++                manager.trigger_random()
++            elif cmd == "shutdown":
++                manager.shutdown_pi()
++            elif cmd == "reboot":
++                manager.reboot_pi()
++            else:
++                raise ValueError(f"Unknown command: {cmd}")
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("Error processing command %s: %s", cmd, exc)
++            return RedirectResponse(url="/?msg=error", status_code=303)
++        return RedirectResponse(url="/", status_code=303)
++
++    @app.get("/api/status")
++    async def api_status():
++        """Return the current playback status as JSON."""
++        return manager.status()
++
++    @app.get("/api/ping")
++    async def ping():
++        """Simple ping endpoint."""
++        return {"ok": True}
++
++    @app.get("/api/sysinfo")
++    async def api_sysinfo():
++        """Return basic system information.
++
++        This implementation uses simple shell commands to gather host name,
++        IP addresses, uptime and CPU temperature.  If a command fails the
++        corresponding field may be ``null``.
++        """
++        hostname = socket.gethostname()
++        # Get IP addresses using "hostname -I" which lists all non‑loopback
++        try:
++            ips_out = os.popen("hostname -I").read().strip()
++            ips = [ip for ip in ips_out.split() if ip]
++        except Exception:
++            ips = []
++        # Uptime from /proc/uptime
++        uptime_s: Optional[float] = None
++        try:
++            with open("/proc/uptime", "r", encoding="utf-8") as f:
++                up = f.read().strip().split()[0]
++                uptime_s = float(up)
++        except Exception:
++            uptime_s = None
++        # CPU temperature (Raspberry Pi)
++        cpu_temp_c: Optional[float] = None
++        try:
++            with open("/sys/class/thermal/thermal_zone0/temp", "r", encoding="utf-8") as f:
++                t_str = f.read().strip()
++                cpu_temp_c = float(t_str) / 1000.0
++        except Exception:
++            cpu_temp_c = None
++        return {
++            "hostname": hostname,
++            "ips": ips,
++            "uptime_s": uptime_s,
++            "cpu_temp_c": cpu_temp_c,
++        }
++
++    @app.websocket("/ws/status")
++    async def ws_status(websocket: WebSocket):
++        """WebSocket endpoint streaming the current status every second."""
++        await websocket.accept()
++        try:
++            while True:
++                await websocket.send_json(manager.status())
++                await asyncio.sleep(1.0)
++        except WebSocketDisconnect:
++            return
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("WebSocket error: %s", exc)
++            return
++
++    # ------------------------------------------------------------------
++    # Settings and configuration routes
++    # ------------------------------------------------------------------
++
++    @app.get("/settings", response_class=HTMLResponse)
++    async def settings_page(request: Request):
++        """Render the settings page with the current configuration."""
++        return TEMPLATES.TemplateResponse(
++            "settings.html",
++            {"request": request, "cfg": manager.cfg},
++        )
++
++    @app.post("/settings/update")
++    async def settings_update(
++        request: Request,
++        idle_to_random_seconds: int = Form(...),
++        daily_shutdown_time: str = Form(""),
++        audio_output_device: str = Form(""),
++        trigger_source: str = Form(...),
++        gpio_pin: int = Form(...),
++        gpio_pull: str = Form(...),
++        gpio_edge: str = Form(...),
++        gpio_db_ms: int = Form(...),
++        artnet_universe: int = Form(...),
++        artnet_channel: int = Form(...),
++        artnet_threshold: int = Form(...),
++        sacn_universe: int = Form(...),
++        sacn_channel: int = Form(...),
++        sacn_threshold: int = Form(...),
++        auth_enabled_f: str | None = Form(None),
++        auth_password: str = Form(""),
++        preferred_mac: str | None = Form(None),
++        bt_scan_seconds: int | None = Form(None),
++    ):
++        """Update the configuration from the submitted settings form.
++
++        The values are saved back into the manager's configuration, written
++        to the YAML file and then reloaded via the manager.
++        """
++        cfg = manager.cfg
++        # General settings
++        cfg["idle_to_random_seconds"] = int(idle_to_random_seconds)
++        cfg["daily_shutdown_time"] = daily_shutdown_time or ""
++        cfg["audio_output_device"] = audio_output_device or ""
++        # Trigger source
++        cfg["trigger_source"] = trigger_source
++        # GPIO
++        gpio_cfg = cfg.setdefault("gpio", {})
++        gpio_cfg["pin"] = int(gpio_pin)
++        gpio_cfg["pull"] = gpio_pull
++        gpio_cfg["edge"] = gpio_edge
++        gpio_cfg["debounce_ms"] = int(gpio_db_ms)
++        # Art-Net
++        artnet_cfg = cfg.setdefault("artnet", {})
++        artnet_cfg["universe"] = int(artnet_universe)
++        artnet_cfg["channel"] = int(artnet_channel)
++        artnet_cfg["threshold"] = int(artnet_threshold)
++        # sACN
++        sacn_cfg = cfg.setdefault("sacn", {})
++        sacn_cfg["universe"] = int(sacn_universe)
++        sacn_cfg["channel"] = int(sacn_channel)
++        sacn_cfg["threshold"] = int(sacn_threshold)
++        # Auth
++        auth_cfg = cfg.setdefault("auth", {})
++        auth_cfg["enabled"] = bool(auth_enabled_f)
++        if auth_password:
++            import hashlib
++            auth_cfg["cookie_secret"] = hashlib.sha256(auth_password.encode()).hexdigest()
++        # Bluetooth settings are not updated via this form.  Preserve existing values unless provided.
++        if preferred_mac is not None:
++            bt_cfg = cfg.setdefault("bluetooth", {})
++            bt_cfg["preferred_mac"] = preferred_mac.strip()
++        if bt_scan_seconds is not None:
++            bt_cfg = cfg.setdefault("bluetooth", {})
++            bt_cfg["scan_seconds"] = int(bt_scan_seconds)
++        # Persist configuration
++        try:
++            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
++                yaml.safe_dump(cfg, f)
++            manager.reload_config()
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("Failed to update configuration: %s", exc)
++            return RedirectResponse(url="/settings?msg=error", status_code=303)
++        return RedirectResponse(url="/settings?msg=saved", status_code=303)
++
++    # ------------------------------------------------------------------
++    # Logs
++    # ------------------------------------------------------------------
++    @app.get("/logs", response_class=HTMLResponse)
++    async def logs_page(request: Request):
++        """Render the logs page showing the recent log file."""
++        log_file = PROJECT_ROOT / "logs" / "cuebeam.log"
++        try:
++            logtext = log_file.read_text(encoding="utf-8")
++        except Exception as exc:  # noqa: BLE001
++            logger.warning("Failed to read log file: %s", exc)
++            logtext = "(log unavailable)"
++        return TEMPLATES.TemplateResponse(
++            "logs.html",
++            {"request": request, "logtext": logtext},
++        )
++
++    # ------------------------------------------------------------------
++    # Bluetooth
++    # ------------------------------------------------------------------
++    @app.get("/bt/list", response_class=HTMLResponse)
++    async def bt_list(request: Request):
++        """List known Bluetooth devices and render the Bluetooth page."""
++        try:
++            devices = bt.scan(timeout_sec=1)
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("Bluetooth scan failed: %s", exc)
++            devices = []
++        return TEMPLATES.TemplateResponse(
++            "bt.html",
++            {"request": request, "paired": devices},
++        )
++
++    @app.get("/bt/scan_json")
++    async def bt_scan_json():
++        """Scan for Bluetooth devices and return results as JSON."""
++        scan_seconds = manager.cfg.get("bluetooth", {}).get("scan_seconds", 8)
++        try:
++            devices = bt.scan(timeout_sec=int(scan_seconds))
++            return {"ok": True, "devices": devices}
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("Bluetooth scan failed: %s", exc)
++            return {"ok": False, "error": str(exc)}
++
++    @app.post("/bt/connect_json")
++    async def bt_connect_json(
++        mac: str = Form(...),
++        save_as_preferred: str | None = Form(None),
++    ):
++        """Attempt to pair, trust and connect to a Bluetooth device."""
++        mac = mac.strip()
++        if not mac:
++            return {"ok": False, "error": "No MAC provided"}
++        try:
++            success = bt.pair_trust_connect(mac)
++        except Exception as exc:  # noqa: BLE001
++            logger.exception("Bluetooth connect failed: %s", exc)
++            return {"ok": False, "error": str(exc)}
++        if success and save_as_preferred:
++            try:
++                cfg = manager.cfg
++                bt_cfg = cfg.setdefault("bluetooth", {})
++                bt_cfg["preferred_mac"] = mac
++                with open(CONFIG_PATH, "w", encoding="utf-8") as f:
++                    yaml.safe_dump(cfg, f)
++                manager.reload_config()
++            except Exception as exc:  # noqa: BLE001
++                logger.exception("Failed to save preferred MAC: %s", exc)
++        return {"ok": bool(success)}
++
++    return app
+diff --git a/src/cuebeam/web/asgi.py b/src/cuebeam/web/asgi.py
+new file mode 100644
+index 0000000..a9a2363
+--- /dev/null
++++ b/src/cuebeam/web/asgi.py
+@@ -0,0 +1,57 @@
++"""
++ASGI entrypoint for CueBeam.
++
++This module configures logging, instantiates the core managers and
++provides the ``app`` object for use by ASGI servers such as
++``uvicorn``.  It should be executed via ``uvicorn --app-dir src
++cuebeam.web.asgi:app`` when the project is installed in a layout
++where ``cuebeam`` lives under ``src``.  The :mod:`logging` module is
++configured to write rotating log files into the ``logs`` directory
++relative to the project root.
++"""
++
++from __future__ import annotations
++
++import logging
++from logging.handlers import RotatingFileHandler
++from pathlib import Path
++
++from ..playback import PlaybackManager
++from ..control import ControlManager
++from .app import make_app
++
++
++# Determine project root.  This file is located at src/cuebeam/web/asgi.py;
++# the project root is three parents up.
++PROJECT_ROOT = Path(__file__).resolve().parents[3]
++
++# Configure logging to a rotating file in the logs directory
++LOG_DIR = PROJECT_ROOT / "logs"
++LOG_DIR.mkdir(exist_ok=True)
++
++handler = RotatingFileHandler(
++    LOG_DIR / "cuebeam.log",
++    maxBytes=1_500_000,
++    backupCount=3,
++)
++fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
++handler.setFormatter(fmt)
++root_logger = logging.getLogger()
++root_logger.setLevel(logging.INFO)
++root_logger.addHandler(handler)
++
++
++# Instantiate managers
++mgr = PlaybackManager()
++mgr.start()
++
++
++def _handle_event() -> None:
++    _ = mgr.trigger_event()
++
++
++ctrl = ControlManager(mgr.cfg, on_event=_handle_event)
++ctrl.start()
++
++# Export FastAPI application
++app = make_app(mgr)
+diff --git a/static/style.css b/static/style.css
+new file mode 100644
+index 0000000..71e9592
+--- /dev/null
++++ b/static/style.css
+@@ -0,0 +1,141 @@
++/* Dark theme and responsive layout */
++body{
++  font-family: sans-serif;
++  max-width: 800px;
++  margin: 0 auto;
++  padding: 1rem;
++  background-color: #121212;
++  color: #f5f5f5;
++}
++
++/* Centered container for page content */
++.container{
++  max-width: 700px;
++  margin: 0 auto;
++}
++
++/* Headings */
++h1, h2, h3, h4{
++  margin-top: 0;
++  color: #f5f5f5;
++  text-align: center;
++}
++
++/* Form controls */
++button, input, select{
++  margin: .25rem .5rem .25rem 0;
++  padding: 0.4rem 0.8rem;
++  font-size: 1rem;
++  border-radius: 0.3rem;
++}
++
++/* Buttons */
++button{
++  background-color: #3a6ea5;
++  color: #ffffff;
++  border: none;
++  cursor: pointer;
++}
++button:hover{
++  background-color: #345c85;
++}
++
++/* Inputs and selects */
++input, select{
++  background-color: #1e1e1e;
++  border: 1px solid #444;
++  color: #f5f5f5;
++}
++
++/* Cards */
++.card{
++  border: 1px solid #333;
++  border-radius: 0.5rem;
++  padding: 1rem;
++  margin: 0.75rem 0;
++  background-color: #1e1e1e;
++  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
++}
++
++/* Centre forms and align label/input rows */
++form{
++  max-width: 600px;
++  margin: 0 auto;
++}
++
++form label{
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  margin: 0.3rem 0;
++}
++
++form label input,
++form label select{
++  flex: 1;
++  margin-left: 0.5rem;
++}
++
++/* Links */
++a{
++  color: #66aaff;
++  text-decoration: none;
++}
++a:hover{
++  text-decoration: underline;
++}
++
++/* Preformatted blocks (logs) */
++pre{
++  background-color: #1e1e1e;
++  border: 1px solid #444;
++  padding: 1rem;
++  overflow-x: auto;
++  border-radius: 0.5rem;
++}
++
++/* Toast notifications */
++.toast{
++  position: fixed;
++  right: 1rem;
++  top: 1rem;
++  padding: .6rem .9rem;
++  border-radius: .4rem;
++  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
++  background: #323232;
++  border: 1px solid #5e5e5e;
++  color: #f5f5f5;
++  display: none;
++}
++.toast.error{
++  background: #623232;
++  border-color: #a04040;
++}
++
++/* Tables for system and status panels */
++.stat-table{
++  width: 100%;
++  border-collapse: collapse;
++  table-layout: fixed;
++  margin: 0.2rem 0;
++}
++.stat-table th,
++.stat-table td{
++  padding: 0.25rem 0.5rem;
++  vertical-align: top;
++  word-break: break-word;
++}
++.stat-table th{
++  font-weight: normal;
++  color: #bbbbbb;
++  width: 20%;
++}
++.stat-table td{
++  width: 30%;
++}
++.stat-table tr:nth-child(odd){
++  background-color: #1a1a1a;
++}
++.stat-table tr:nth-child(even){
++  background-color: #131313;
++}
+diff --git a/systemd/cuebeam.service b/systemd/cuebeam.service
+new file mode 100644
+index 0000000..5f1c89e
+--- /dev/null
++++ b/systemd/cuebeam.service
+@@ -0,0 +1,16 @@
++[Unit]
++Description=CueBeam Media Playback Server
++After=network-online.target
++Wants=network-online.target
++
++[Service]
++User=pi
++WorkingDirectory=/home/pi/CueBeam
++Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu:/usr/lib/arm-linux-gnueabihf
++# Use --app-dir src so Python can find the cuebeam package
++ExecStart=/home/pi/CueBeam/venv/bin/uvicorn --app-dir src cuebeam.web.asgi:app --host 0.0.0.0 --port 8080
++Restart=always
++RestartSec=2
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/templates/bt.html b/templates/bt.html
+new file mode 100644
+index 0000000..d3b97f0
+--- /dev/null
++++ b/templates/bt.html
+@@ -0,0 +1,43 @@
++<!doctype html>
++<html><head><meta charset="utf-8"><title>Bluetooth</title>
++<link rel="stylesheet" href="/static/style.css"></head>
++<body>
++<div class="container">
++<h1>Bluetooth</h1>
++<p><button id="scan">Scan</button></p>
++<div id="scanout">(no scan yet)</div>
++<h3>Previously seen</h3>
++<ul>
++  {% for d in paired %}
++    <li>{{ d.name }} ({{ d.mac }})</li>
++  {% endfor %}
++</ul>
++<p><a href="/">Back</a></p>
++</div>
++<script>
++const out = document.getElementById('scanout');
++document.getElementById('scan').onclick = async () => {
++  out.textContent = 'Scanning…';
++  const r = await fetch('/bt/scan_json');
++  const j = await r.json();
++  if(!j.ok){ out.textContent = 'Scan failed: '+(j.error||''); return; }
++  out.innerHTML = '';
++  j.devices.forEach(d => {
++    const li = document.createElement('div');
++    const btn = document.createElement('button');
++    btn.textContent = 'Connect';
++    btn.onclick = async () => {
++      const fd = new FormData();
++      fd.append('mac', d.mac);
++      fd.append('save_as_preferred', 'on');
++      const r2 = await fetch('/bt/connect_json', { method:'POST', body:fd });
++      const j2 = await r2.json();
++      alert(j2.ok ? 'Connected' : ('Failed: ' + (j2.error||'')));
++    };
++    li.textContent = d.name+' ('+d.mac+') ';
++    li.appendChild(btn);
++    out.appendChild(li);
++  });
++};
++</script>
++</body></html>
+diff --git a/templates/index.html b/templates/index.html
+new file mode 100644
+index 0000000..33c76a8
+--- /dev/null
++++ b/templates/index.html
+@@ -0,0 +1,124 @@
++<!doctype html>
++<html>
++<head>
++  <meta charset="utf-8">
++  <title>CueBeam</title>
++  <link rel="stylesheet" href="/static/style.css">
++  <!-- Styles are defined in static/style.css for dark theme and responsive layout -->
++</head>
++<body data-msg="{{ request.query_params.get('msg','') }}">
++<div id="toast" class="toast"></div>
++<div class="container">
++  <h1>CueBeam</h1>
++
++  <div class="card"><h3>Now Playing</h3><div id="np">—</div></div>
++  <div class="card"><h3>System</h3><div id="sys">loading…</div></div>
++  <div class="card"><h3>Status</h3><div id="status">connecting…</div></div>
++
++  <form method="post" action="/action" style="text-align:center">
++    <button name="cmd" value="pause">Pause/Resume</button>
++    <button name="cmd" value="skip">Skip</button>
++    <button name="cmd" value="trigger_event">Trigger Event</button>
++    <button name="cmd" value="trigger_random">Play Random</button>
++    <button name="cmd" value="shutdown" onclick="return confirm('Shutdown Pi?')">Shutdown</button>
++    <button name="cmd" value="reboot" onclick="return confirm('Reboot Pi?')">Reboot</button>
++  </form>
++
++  <h2>Upload</h2>
++  <form method="post" action="/upload" enctype="multipart/form-data" style="text-align:center">
++    <input type="file" name="file" required>
++    <select name="target">
++      <option value="idle">idle</option>
++      <option value="events">events</option>
++      <option value="random">random</option>
++    </select>
++    <button type="submit">Upload</button>
++  </form>
++
++  <p style="text-align:center"><a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> |
++  <a href="/logs">Logs</a></p>
++</div>
++
++<script>
++function humanUptime(s){
++  s = Math.floor(s||0);
++  const d = Math.floor(s/86400); s%=86400;
++  const h = Math.floor(s/3600); s%=3600;
++  const m = Math.floor(s/60);
++  const parts=[];
++  if(d) parts.push(d+'d'); if(h) parts.push(h+'h'); if(m) parts.push(m+'m');
++  return parts.join(' ')||'0m';
++}
++const el = document.getElementById('status');
++const np = document.getElementById('np');
++const sys = document.getElementById('sys');
++
++function humanLabel(key){
++  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
++}
++function formatValue(val){
++  if (Array.isArray(val)) return val.length + ' items';
++  if (val && typeof val === 'object') {
++    return Object.entries(val).map(([k,v]) => `${humanLabel(k)}: ${v}`).join(', ');
++  }
++  return String(val);
++}
++function renderStatus(s){
++  // Update "Now Playing" label
++  const name = s.current_basename || '(none)';
++  const cat = s.current_category || '-';
++  np.textContent = name + (cat ? '  [' + cat + ']' : '');
++  // Build a human‑readable table of status entries
++  const entries = Object.entries(s).map(([k,v]) => [humanLabel(k), formatValue(v)]);
++  let html = '<table class="stat-table">';
++  for (let i = 0; i < entries.length; i += 2) {
++    const [k1, v1] = entries[i];
++    const pair2 = entries[i+1] || ['', ''];
++    const [k2, v2] = pair2;
++    html += `<tr><th>${k1}</th><td>${v1}</td><th>${k2}</th><td>${v2}</td></tr>`;
++  }
++  html += '</table>';
++  el.innerHTML = html;
++}
++function renderSysinfo(j){
++  // Map system info to human‑readable entries
++  const data = {
++    'Host': j.hostname || '',
++    'IPs': (j.ips || []).join(', '),
++    'Uptime': humanUptime(j.uptime_s),
++    'CPU Temp': (j.cpu_temp_c != null) ? (j.cpu_temp_c + '°C') : 'n/a'
++  };
++  const entries = Object.entries(data);
++  let html = '<table class="stat-table">';
++  for (let i = 0; i < entries.length; i += 2) {
++    const [k1, v1] = entries[i];
++    const pair2 = entries[i+1] || ['', ''];
++    const [k2, v2] = pair2;
++    html += `<tr><th>${k1}</th><td>${v1}</td><th>${k2}</th><td>${v2}</td></tr>`;
++  }
++  html += '</table>';
++  sys.innerHTML = html;
++}
++function fallback(){
++  fetch('/api/status').then(r=>r.json()).then(renderStatus).catch(()=>{el.textContent='status error'});
++}
++try {
++  const ws = new WebSocket(`ws://${location.host}/ws/status`);
++  ws.onmessage = (e)=>renderStatus(JSON.parse(e.data));
++  ws.onerror = fallback; ws.onclose = fallback;
++} catch { fallback(); }
++
++function getSys(){ fetch('/api/sysinfo').then(r=>r.json()).then(renderSysinfo).catch(()=>{}); }
++getSys(); setInterval(getSys, 5000);
++
++const msg = document.body.dataset.msg;
++if(msg){
++  const t = document.getElementById('toast');
++  t.textContent = (msg==='uploaded')?'Upload successful':'Upload failed';
++  if(msg!=='uploaded') t.classList.add('error');
++  t.style.display='block';
++  setTimeout(()=>t.style.display='none', 2500);
++}
++</script>
++</body>
++</html>
+diff --git a/templates/login.html b/templates/login.html
+new file mode 100644
+index 0000000..86e2c49
+--- /dev/null
++++ b/templates/login.html
+@@ -0,0 +1,12 @@
++<!doctype html>
++<html><head><meta charset="utf-8"><title>Login</title>
++<link rel="stylesheet" href="/static/style.css"></head>
++<body>
++<div class="container" style="text-align:center">
++<h1>Login</h1>
++<form action="/login" method="post">
++  <input name="password" type="password" placeholder="password" required>
++  <button type="submit">Login</button>
++</form>
++</div>
++</body></html>
+diff --git a/templates/logs.html b/templates/logs.html
+new file mode 100644
+index 0000000..276264c
+--- /dev/null
++++ b/templates/logs.html
+@@ -0,0 +1,10 @@
++<!doctype html>
++<html><head><meta charset="utf-8"><title>Logs</title>
++<link rel="stylesheet" href="/static/style.css"></head>
++<body>
++<div class="container">
++<h1>Logs</h1>
++<pre style="white-space:pre-wrap">{{ logtext }}</pre>
++<p><a href="/">Back</a></p>
++</div>
++</body></html>
+diff --git a/templates/settings.html b/templates/settings.html
+new file mode 100644
+index 0000000..0f22829
+--- /dev/null
++++ b/templates/settings.html
+@@ -0,0 +1,106 @@
++<!doctype html>
++<html><head><meta charset="utf-8"><title>Settings</title>
++<link rel="stylesheet" href="/static/style.css"></head>
++<body>
++<div class="container">
++<h1>Settings</h1>
++<form method="post" action="/settings/update">
++  <!-- General settings -->
++  <div class="card">
++    <h3>General</h3>
++    <label>Idle→Random seconds
++      <input name="idle_to_random_seconds" type="number"
++             value="{{ cfg.idle_to_random_seconds }}">
++    </label>
++    <label>Daily shutdown (HH:MM)
++      <input name="daily_shutdown_time" value="{{ cfg.daily_shutdown_time }}">
++    </label>
++    <label>Audio device (mpv ao)
++      <input name="audio_output_device" value="{{ cfg.audio_output_device }}">
++    </label>
++  </div>
++
++  <!-- Trigger source selection -->
++  <div class="card">
++    <h3>Triggers</h3>
++    <label>Source
++      <select name="trigger_source">
++        {% for s in ['gpio','artnet','sacn'] %}
++        <option value="{{ s }}" {% if cfg.trigger_source==s %}selected{% endif %}>{{ s }}</option>
++        {% endfor %}
++      </select>
++    </label>
++  </div>
++
++  <!-- GPIO configuration -->
++  <div class="card">
++    <h4>GPIO</h4>
++    <label>Pin (BCM)
++      <input name="gpio_pin" type="number" value="{{ cfg.gpio.pin }}">
++    </label>
++    <label>Pull
++      <select name="gpio_pull">
++        {% for p in ['up','down'] %}
++        <option value="{{ p }}" {% if cfg.gpio.pull==p %}selected{% endif %}>{{ p }}</option>
++        {% endfor %}
++      </select>
++    </label>
++    <label>Edge
++      <select name="gpio_edge">
++        {% for e in ['rising','falling','both'] %}
++        <option value="{{ e }}" {% if cfg.gpio.edge==e %}selected{% endif %}>{{ e }}</option>
++        {% endfor %}
++      </select>
++    </label>
++    <label>Debounce ms
++      <input name="gpio_db_ms" type="number" value="{{ cfg.gpio.debounce_ms }}">
++    </label>
++  </div>
++
++  <!-- Art-Net configuration -->
++  <div class="card">
++    <h4>Art-Net</h4>
++    <label>Universe
++      <input name="artnet_universe" type="number" value="{{ cfg.artnet.universe }}">
++    </label>
++    <label>Channel
++      <input name="artnet_channel" type="number" value="{{ cfg.artnet.channel }}">
++    </label>
++    <label>Threshold
++      <input name="artnet_threshold" type="number" value="{{ cfg.artnet.threshold }}">
++    </label>
++  </div>
++
++  <!-- sACN configuration -->
++  <div class="card">
++    <h4>sACN</h4>
++    <label>Universe
++      <input name="sacn_universe" type="number" value="{{ cfg.sacn.universe }}">
++    </label>
++    <label>Channel
++      <input name="sacn_channel" type="number" value="{{ cfg.sacn.channel }}">
++    </label>
++    <label>Threshold
++      <input name="sacn_threshold" type="number" value="{{ cfg.sacn.threshold }}">
++    </label>
++  </div>
++
++  <!-- Authentication -->
++  <div class="card">
++    <h4>Auth</h4>
++    <label>
++      <input type="checkbox" name="auth_enabled_f"
++             {% if cfg.auth.enabled %}checked{% endif %}> Enable
++    </label>
++    <label>Password
++      <input name="auth_password" type="password" placeholder="leave blank to reuse">
++    </label>
++  </div>
++
++  <div style="text-align:center; margin:1rem 0;">
++    <button type="submit">Save</button>
++    <a href="/">Back</a>
++  </div>
++</form>
++</div>
++</body></html>
+diff --git a/tests/test_app.py b/tests/test_app.py
+new file mode 100644
+index 0000000..d9b4646
+--- /dev/null
++++ b/tests/test_app.py
+@@ -0,0 +1,30 @@
++import pytest
++from httpx import AsyncClient
++from cuebeam.web.app import make_app
++
++
++class DummyManager:
++    """Simple stub implementing the minimal PlaybackManager API needed for testing."""
++
++    def status(self):  # noqa: D401
++        """Return an empty status for the ping test."""
++        return {}
++
++    def reload_media(self):
++        """Stub reload_media; does nothing for test."""
++        pass
++
++    def ensure_idle_playing(self):  # noqa: D401
++        """Stub ensure_idle_playing; does nothing for test."""
++        pass
++
++
++@pytest.mark.asyncio
++async def test_ping_endpoint() -> None:
++    """Verify that the /api/ping endpoint returns 200 and {'ok': True} JSON."""
++    app = make_app(DummyManager())
++    async with AsyncClient(app=app, base_url="http://test") as client:
++        response = await client.get("/api/ping")
++        assert response.status_code == 200
++        # Accept either {'ok': True} or {'result': 'ok'} for backward compatibility
++        assert response.json() in ({"ok": True}, {"result": "ok"})
+\ No newline at end of file
+diff --git a/tools/bump_version.py b/tools/bump_version.py
+new file mode 100644
+index 0000000..df7b0b6
+--- /dev/null
++++ b/tools/bump_version.py
+@@ -0,0 +1,30 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++
++
++def read_version(path: Path) -> str:
++    return path.read_text(encoding="utf-8").strip()
++
++
++def write_version(path: Path, v: str) -> None:
++    path.write_text(v.strip(), encoding="utf-8")
++
++
++def main() -> None:
++    ap = argparse.ArgumentParser(
++        description="Bump version.txt and echo new version"
++    )
++    ap.add_argument("version", help="New version like 1.2.3")
++    ap.add_argument("--file", default="version.txt", help="Path to version file")
++    args = ap.parse_args()
++
++    path = Path(args.file)
++    write_version(path, args.version)
++    print(args.version)
++
++
++if __name__ == "__main__":
++    main()
