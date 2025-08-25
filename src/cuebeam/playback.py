@@ -338,16 +338,20 @@ class PlaybackManager:
                 newlst.append(str(idle))
             else:
                 logger.warning("No idle files available to follow event")
-            # Write the playlist file
+            # Write the playlist file for external players (e.g. front-end UI)
             self._write_m3u(newlst)
-            # Replace current playback with event and following idle
+            # Replace current playback with event and following idle.  Use 'replace' for the
+            # first item to ensure the event clip starts immediately without playing the
+            # previously loaded idle clip.  Subsequent items are appended to the playlist.
             try:
-                # Clear existing playlist and load new items
+                # Clear existing playlist and load the event clip, replacing the current item.
                 self.mpv.command("playlist-clear")
-                for it in newlst:
-                    self.mpv.command("loadfile", it, "append-play")
-                # Start playing the first item (event) immediately
-                self.mpv.command("playlist-play-index", "0")
+                # Load the event clip and replace the current playing item.  The "replace"
+                # argument clears any previous playlist entry and starts playback immediately.
+                self.mpv.command("loadfile", str(ev), "replace")
+                # Append idle clip(s) if available
+                if idle:
+                    self.mpv.command("loadfile", str(idle), "append-play")
                 # Disable looping while event/random playlists are active
                 try:
                     self.mpv.command("set_property", "loop-playlist", "no")
