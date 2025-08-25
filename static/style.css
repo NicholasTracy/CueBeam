@@ -113,6 +113,48 @@ pre{
   border-color: #a04040;
 }
 
+/* Modal overlay used for Bluetooth PIN input */
+.modal{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 2000;
+}
+.modal > h3{
+  margin-top: 0;
+}
+.modal input{
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0.4rem;
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  color: #f5f5f5;
+  border-radius: 0.3rem;
+}
+.modal .actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.modal button{
+  background-color: #3a6ea5;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  border-radius: 0.3rem;
+  padding: 0.4rem 0.8rem;
+}
+.modal button:hover{
+  background-color: #345c85;
+}
+
 /* Tables for system and status panels */
 .stat-table{
   width: 100%;
@@ -136,6 +178,21 @@ pre{
   font-size: 1rem;
 }
 .device-row:last-child{
+  border-bottom: none;
+}
+
+/* Generic file lists used on the media and playlist panels */
+.file-list{
+  list-style: none;
+  padding: 0;
+  margin: 0.2rem 0;
+}
+.file-list li{
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #333;
+  font-size: 0.95rem;
+}
+.file-list li:last-child{
   border-bottom: none;
 }
 
@@ -178,4 +235,41 @@ progress::-moz-progress-bar{
 }
 .stat-table tr:nth-child(even){
   background-color: #131313;
+}
+
+/* Modal dialog for PIN input */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  z-index: 1000;
+  display: none;
+  min-width: 250px;
+}
+.modal h3{
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+.modal input{
+  width: 100%;
+  padding: 0.4rem;
+  margin-top: 0.5rem;
+  background-color: #1e1e1e;
+  border: 1px solid #444;
+  color: #f5f5f5;
+  border-radius: 0.3rem;
+}
+.modal .actions{
+  text-align: right;
+  margin-top: 0.8rem;
+}
+.modal .actions button{
+  margin-left: 0.5rem;
 }

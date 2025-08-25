@@ -97,7 +97,8 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         if dest_path.suffix.lower() not in allowed_ext:
             # Close the file handle and redirect with error message
             await file.close()
-            return RedirectResponse(url="/?msg=invalidfile", status_code=303)
+            # Send user back to the media page with an invalid file message
+            return RedirectResponse(url="/media?msg=invalidfile", status_code=303)
         try:
             with dest_path.open("wb") as out_f:
                 content = await file.read()
@@ -116,7 +117,9 @@ def make_app(manager: PlaybackManager) -> FastAPI:
                 status_code=202,
             )
 
-        return RedirectResponse(url="/?msg=uploaded", status_code=303)
+        # Always redirect to the media page after upload so that users see the
+        # updated file list and appropriate toast message.
+        return RedirectResponse(url="/media?msg=uploaded", status_code=303)
 
     @app.post("/action")
     async def action(cmd: str = Form(...)):
@@ -306,6 +309,42 @@ def make_app(manager: PlaybackManager) -> FastAPI:
         )
 
     # ------------------------------------------------------------------
+    # Media upload and browser
+    # ------------------------------------------------------------------
+
+    @app.get("/media", response_class=HTMLResponse)
+    async def media_page(request: Request):
+        """Render the media upload page with file browser."""
+        return TEMPLATES.TemplateResponse(
+            "media.html",
+            {"request": request},
+        )
+
+    @app.get("/api/media")
+    async def api_media():
+        """Return the list of media files in each category as JSON.
+
+        The response has keys ``idle``, ``events`` and ``random`` mapping
+        to sorted lists of filenames found in the corresponding media
+        directories.  If a directory does not exist it will be returned
+        as an empty list.
+        """
+        base = PROJECT_ROOT / "media"
+        result: dict[str, list[str]] = {}
+        for cat in ("idle", "events", "random"):
+            dpath = base / cat
+            try:
+                if dpath.exists():
+                    result[cat] = sorted([
+                        p.name for p in dpath.iterdir() if p.is_file()
+                    ])
+                else:
+                    result[cat] = []
+            except Exception:
+                result[cat] = []
+        return result
+
+    # ------------------------------------------------------------------
     # Bluetooth
     # ------------------------------------------------------------------
     @app.get("/bt/list", response_class=HTMLResponse)
@@ -336,13 +375,19 @@ def make_app(manager: PlaybackManager) -> FastAPI:
     async def bt_connect_json(
         mac: str = Form(...),
         save_as_preferred: str | None = Form(None),
+        pin: str | None = Form(None),
     ):
-        """Attempt to pair, trust and connect to a Bluetooth device."""
+        """Attempt to pair, trust and connect to a Bluetooth device.
+
+        If a ``pin`` is provided, it will be passed through to the pairing helper
+        to accommodate devices that require a PIN code or passkey.  When no
+        ``pin`` is supplied the helper will attempt a non‑interactive pairing.
+        """
         mac = mac.strip()
         if not mac:
             return {"ok": False, "error": "No MAC provided"}
         try:
-            success = bt.pair_trust_connect(mac)
+            success = bt.pair_trust_connect(mac, pin)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Bluetooth connect failed: %s", exc)
             return {"ok": False, "error": str(exc)}

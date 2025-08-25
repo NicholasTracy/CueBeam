@@ -24,23 +24,10 @@
     <button name="cmd" value="reboot" onclick="return confirm('Reboot Pi?')">Reboot</button>
   </form>
 
-  <h2>Upload</h2>
-  <form method="post" action="/upload" enctype="multipart/form-data" style="text-align:center">
-    <input type="file" name="file" required>
-    <select name="target">
-      <option value="idle">idle</option>
-      <option value="events">events</option>
-      <option value="random">random</option>
-    </select>
-    <button type="submit">Upload</button>
-  </form>
+  <!-- Playlist display -->
+  <div class="card"><h3>Queue</h3><ul id="playlist" class="file-list"></ul></div>
 
-  <!-- Upload progress bar (hidden until an upload is in progress) -->
-  <div id="upload-progress" style="display:none; margin-top:0.5rem;">
-    <progress id="upload-bar" value="0" max="100" style="width:100%; height:1rem;"></progress>
-  </div>
-
-  <p style="text-align:center"><a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> |
+  <p style="text-align:center"><a href="/media">Media</a> | <a href="/settings">Settings</a> | <a href="/bt/list">Bluetooth</a> |
   <a href="/logs">Logs</a></p>
 </div>
 
@@ -73,6 +60,25 @@ function renderStatus(s){
   const name = s.current_basename || '(none)';
   const cat = s.current_category || '-';
   np.textContent = name + (cat ? '  [' + cat + ']' : '');
+  // Update playlist display
+  const playlistEl = document.getElementById('playlist');
+  if (playlistEl) {
+    playlistEl.innerHTML = '';
+    (s.playlist || []).forEach(function (p) {
+      // Display only the basename of the file path
+      const parts = p.split('/');
+      const fname = parts[parts.length - 1] || p;
+      const li = document.createElement('li');
+      li.textContent = fname;
+      playlistEl.appendChild(li);
+    });
+    if ((s.playlist || []).length === 0) {
+      const li = document.createElement('li');
+      li.textContent = '(empty)';
+      li.style.color = '#666';
+      playlistEl.appendChild(li);
+    }
+  }
   // Build a human‑readable table of status entries
   const entries = Object.entries(s).map(([k,v]) => [humanLabel(k), formatValue(v)]);
   let html = '<table class="stat-table">';
@@ -134,39 +140,6 @@ if(msg){
   setTimeout(()=>t.style.display='none', 3000);
 }
 
-// Attach progress handling to the upload form
-{
-  const form = document.querySelector('form[action="/upload"]');
-  const progressContainer = document.getElementById('upload-progress');
-  const bar = document.getElementById('upload-bar');
-  if(form){
-    form.addEventListener('submit', function(ev){
-      // Do not interfere with default behaviour if no file selected or unsupported methods
-      if(!form.file || !form.file.files || !form.file.files[0]) return;
-      ev.preventDefault();
-      const fd = new FormData(form);
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload');
-      // Show progress bar
-      progressContainer.style.display = 'block';
-      bar.value = 0;
-      xhr.upload.addEventListener('progress', e => {
-        if(e.lengthComputable){ bar.value = (e.loaded / e.total) * 100; }
-      });
-      xhr.onreadystatechange = () => {
-        if(xhr.readyState === 4){
-          // Redirect on completion to handle success or error via query parameter
-          if(xhr.status >= 200 && xhr.status < 400){
-            window.location.href = xhr.responseURL;
-          } else {
-            window.location.href = '/?msg=error';
-          }
-        }
-      };
-      xhr.send(fd);
-    });
-  }
-}
 </script>
 </body>
 </html>

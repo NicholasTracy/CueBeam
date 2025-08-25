@@ -39,19 +39,83 @@ def scan(timeout_sec: int = 8) -> List[Dict[str, str]]:
     return devices
 
 
-def pair_trust_connect(mac: str) -> bool:
-    """Pair, trust and connect to a device given its MAC address."""
+def pair_trust_connect(mac: str, pin: str | None = None) -> bool:
+    """Pair, trust and connect to a device given its MAC address.
+
+    If a ``pin`` is supplied, an interactive pairing attempt is made to
+    accommodate legacy devices that require a PIN code.  In this mode the
+    function will attempt to respond to a PIN or passkey prompt automatically
+    by sending the provided PIN or confirming the displayed passkey.  When no
+    ``pin`` is given, the original non‑interactive behaviour is used.
+    """
     mac = mac.strip()
     if not mac:
         return False
+    # Always ensure the controller is powered and an agent is registered
     _run(["bluetoothctl", "power", "on"])
     _run(["bluetoothctl", "agent", "on"])
     _run(["bluetoothctl", "default-agent"])
-    _run(["bluetoothctl", "pair", mac])
-    _run(["bluetoothctl", "trust", mac])
-    out = _run(["bluetoothctl", "connect", mac])
-    info = _run(["bluetoothctl", "info", mac])
-    return "Connection successful" in out or "Connected: yes" in info
+    # If no PIN provided, fall back to the simple pairing sequence
+    if not pin:
+        _run(["bluetoothctl", "pair", mac])
+        _run(["bluetoothctl", "trust", mac])
+        out = _run(["bluetoothctl", "connect", mac])
+        info = _run(["bluetoothctl", "info", mac])
+        return "Connection successful" in out or "Connected: yes" in info
+    # Otherwise attempt an interactive pair using pexpect
+    try:
+        import pexpect  # type: ignore
+    except Exception:
+        # pexpect not available; cannot handle PIN prompts
+        return False
+    # Spawn bluetoothctl in interactive mode
+    try:
+        child = pexpect.spawn("bluetoothctl", encoding="utf-8", timeout=30)
+        # Wait for initial prompt
+        child.expect(["#", "\$", pexpect.TIMEOUT, pexpect.EOF])
+        child.sendline("power on")
+        child.sendline("agent KeyboardOnly")
+        child.sendline("default-agent")
+        child.sendline(f"pair {mac}")
+        paired = False
+        while True:
+            idx = child.expect([
+                "Enter PIN code:",
+                "[agent] Confirm passkey",
+                "Pairing successful",
+                "Failed to pair",
+                pexpect.EOF,
+                pexpect.TIMEOUT,
+            ])
+            # Prompt for PIN: send the supplied code
+            if idx == 0:
+                child.sendline(pin)
+                continue
+            # Prompt to confirm a displayed passkey – always confirm
+            if idx == 1:
+                child.sendline("yes")
+                continue
+            # Successful pairing
+            if idx == 2:
+                paired = True
+                break
+            # Failure or unexpected output
+            if idx in (3, 4, 5):
+                break
+        # After pairing attempt, trust and connect regardless of success
+        child.sendline(f"trust {mac}")
+        child.sendline(f"connect {mac}")
+        # Wait briefly for output then terminate
+        try:
+            child.expect("Connected: yes", timeout=10)
+            connected = True
+        except Exception:
+            connected = False
+        child.close()
+        return paired or connected
+    except Exception:
+        # Any unexpected error means the pairing failed
+        return False
 
 
 def ensure_connected(mac: str) -> bool:

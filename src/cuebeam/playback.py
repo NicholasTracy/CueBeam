@@ -225,13 +225,41 @@ class PlaybackManager:
             # If mpv supports property observers (python-mpv >= 1.0)
             @self.mpv.property_observer("path")  # type: ignore[no-redef]
             def _on_path(_name, val) -> None:
+                """
+                Track changes to the currently playing path.
+
+                This observer updates the internal playback state and resets
+                the idle/random timers when event or random clips finish.
+                When a random clip finishes and playback returns to an idle
+                clip, the ``last_random_injected_ts`` is updated to the
+                current time so that the idle monitor waits a full
+                ``idle_to_random_seconds`` before injecting another random
+                clip.  Similarly, when an event finishes, ``last_event_ts``
+                is updated to delay random clips until the configured
+                interval has elapsed since the event ended.
+                """
                 path_str = str(val) if val else ""
                 with self._lock:
+                    prev_path = self._state.get("current_path", "")
+                    prev_random = bool(self._state.get("in_random_mode", False))
+                    # Update current path and random flag
                     self._state["current_path"] = path_str
                     if path_str.startswith(str(RANDOM_DIR)):
                         self._state["in_random_mode"] = True
                     elif path_str.startswith(str(IDLE_DIR)):
                         self._state["in_random_mode"] = False
+                    else:
+                        # Neither idle nor random implies event
+                        self._state["in_random_mode"] = False
+                    # Detect transitions back to idle to reset timers
+                    if path_str.startswith(str(IDLE_DIR)):
+                        # Previously playing path determines what just finished
+                        if prev_random and prev_path and prev_path.startswith(str(RANDOM_DIR)):
+                            # Random clip finished
+                            self._state["last_random_injected_ts"] = float(time.time())
+                        elif prev_path and not prev_path.startswith(str(IDLE_DIR)) and not prev_path.startswith(str(RANDOM_DIR)):
+                            # Event clip finished
+                            self._state["last_event_ts"] = float(time.time())
         except AttributeError:
             # Fallback: poll the ``path`` property periodically
             def _poll_loop() -> None:
@@ -243,11 +271,21 @@ class PlaybackManager:
                         cur = ""
                     if cur != last:
                         with self._lock:
+                            prev_path = self._state.get("current_path", "")
+                            prev_random = bool(self._state.get("in_random_mode", False))
                             self._state["current_path"] = cur
                             if cur.startswith(str(RANDOM_DIR)):
                                 self._state["in_random_mode"] = True
                             elif cur.startswith(str(IDLE_DIR)):
                                 self._state["in_random_mode"] = False
+                            else:
+                                self._state["in_random_mode"] = False
+                            # Reset timers when returning to idle
+                            if cur.startswith(str(IDLE_DIR)):
+                                if prev_random and prev_path and prev_path.startswith(str(RANDOM_DIR)):
+                                    self._state["last_random_injected_ts"] = float(time.time())
+                                elif prev_path and not prev_path.startswith(str(IDLE_DIR)) and not prev_path.startswith(str(RANDOM_DIR)):
+                                    self._state["last_event_ts"] = float(time.time())
                         last = cur
                     time.sleep(0.5)
             threading.Thread(target=_poll_loop, daemon=True).start()
@@ -411,9 +449,17 @@ class PlaybackManager:
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Failed to inject random clip: %s", exc)
                 return False
-            # Record the injection timestamp; random mode will be toggled
-            # automatically via the path observer when the random clip starts
-            self._state["last_random_injected_ts"] = float(time.time())
+            # Indicate that we are now in random mode so that the idle monitor
+            # does not schedule additional random injections while this clip
+            # is playing.  The path observer will reset ``in_random_mode``
+            # and update ``last_random_injected_ts`` when the random clip
+            # finishes and playback returns to idle.
+            self._state["in_random_mode"] = True
+            # Do not update ``last_random_injected_ts`` here.  We want the
+            # random timer to start counting only after the random clip has
+            # completed, not when it begins.  The path observer will set
+            # ``last_random_injected_ts`` when it detects the transition back
+            # to idle.
             return True
 
     def pause_toggle(self) -> bool:

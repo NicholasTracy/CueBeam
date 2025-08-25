@@ -30,6 +30,47 @@
 </div>
 
 <script>
+// Toast helper to display messages centrally
+function showToast(message, isError = false) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  if (isError) toast.classList.add('error'); else toast.classList.remove('error');
+  toast.style.display = 'block';
+  // Hide after 3 seconds
+  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+// Modal for entering PIN codes
+let pendingMac = '';
+function showPinDialog(mac, name) {
+  pendingMac = mac;
+  document.getElementById('pin-device-name').textContent = name;
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-modal').style.display = 'block';
+}
+function hidePinDialog() {
+  document.getElementById('pin-modal').style.display = 'none';
+}
+async function connectWithPin() {
+  const pinValue = document.getElementById('pin-input').value;
+  const fd = new FormData();
+  fd.append('mac', pendingMac);
+  fd.append('save_as_preferred', 'on');
+  if (pinValue) fd.append('pin', pinValue);
+  try {
+    const r2 = await fetch('/bt/connect_json', { method:'POST', body: fd });
+    const j2 = await r2.json();
+    hidePinDialog();
+    if (j2.ok) {
+      showToast('Connected');
+    } else {
+      showToast('Failed: ' + (j2.error || 'Unknown error'), true);
+    }
+  } catch (err) {
+    hidePinDialog();
+    showToast('Connection error', true);
+  }
+}
 const out = document.getElementById('scanout');
 document.getElementById('scan').onclick = async () => {
   // Show scanning status
@@ -49,15 +90,10 @@ document.getElementById('scan').onclick = async () => {
       row.classList.add('device-row');
       const btn = document.createElement('button');
       btn.textContent = 'Connect';
-      btn.onclick = async () => {
-        const fd = new FormData();
-        fd.append('mac', d.mac);
-        fd.append('save_as_preferred', 'on');
-        const r2 = await fetch('/bt/connect_json', { method:'POST', body:fd });
-        const j2 = await r2.json();
-        alert(j2.ok ? 'Connected' : ('Failed: ' + (j2.error||'')));
+      btn.onclick = () => {
+        showPinDialog(d.mac, d.name);
       };
-      row.textContent = d.name+' ('+d.mac+')';
+      row.textContent = d.name + ' (' + d.mac + ')';
       row.appendChild(btn);
       out.appendChild(row);
     });
@@ -66,4 +102,16 @@ document.getElementById('scan').onclick = async () => {
   }
 };
 </script>
-</body></html>
+<!-- Modal for PIN input -->
+<div id="pin-modal" class="modal">
+  <h3>Enter PIN for <span id="pin-device-name"></span></h3>
+  <input id="pin-input" type="text" placeholder="PIN code">
+  <div class="actions">
+    <button onclick="hidePinDialog()">Cancel</button>
+    <button onclick="connectWithPin()">Connect</button>
+  </div>
+</div>
+<!-- Toast notification container -->
+<div id="toast" class="toast"></div>
+</body>
+</html>
