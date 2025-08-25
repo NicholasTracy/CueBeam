@@ -29,8 +29,9 @@ async def test_ping_endpoint() -> None:
     # when the underlying libmpv is not available in the test environment.
     # Create a dummy module using ModuleType to satisfy the static type checker.  Using ModuleType
     # rather than SimpleNamespace avoids a mypy error on the type of the second argument to setdefault.
-    mpv_stub = types.ModuleType('mpv')
-    mpv_stub.MPV = object
+    # Create a dummy module and cast to Any so that assigning MPV is permitted without a type error.
+    mpv_stub = cast(Any, types.ModuleType('mpv'))
+    mpv_stub.MPV = object  # type: ignore[attr-defined]
     sys.modules.setdefault('mpv', mpv_stub)
 
     # Import make_app lazily after the mpv stub is in place.
