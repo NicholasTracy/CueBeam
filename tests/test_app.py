@@ -6,7 +6,6 @@ from httpx import AsyncClient
 from typing import cast, Any
 
 
-
 class DummyManager:
     """Simple stub implementing the minimal PlaybackManager API needed for testing."""
 
