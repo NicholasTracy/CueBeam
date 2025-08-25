@@ -1,6 +1,6 @@
 import pytest
 from httpx import AsyncClient
-from src.cuebeam.web.app import make_app
+from cuebeam.web.asgi import make_app
 
 
 @pytest.mark.asyncio
