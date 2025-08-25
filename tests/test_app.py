@@ -2,7 +2,7 @@ import sys
 import types
 
 import pytest
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
 from typing import cast, Any
 
 
@@ -22,14 +22,11 @@ class DummyManager:
         pass
 
 
-@pytest.mark.asyncio
-async def test_ping_endpoint() -> None:
+def test_ping_endpoint() -> None:
     """Verify that the /api/ping endpoint returns 200 and {'ok': True} JSON."""
     # Inject a stub ``mpv`` module before importing cuebeam.web.app.  This prevents an ImportError
-    # when the underlying libmpv is not available in the test environment.
-    # Create a dummy module using ModuleType to satisfy the static type checker.  Using ModuleType
-    # rather than SimpleNamespace avoids a mypy error on the type of the second argument to setdefault.
-    # Create a dummy module and cast to Any so that assigning MPV is permitted without a type error.
+    # when the underlying libmpv is not available in the test environment.  Casting the module to
+    # Any allows dynamic attribute assignment without mypy errors.
     mpv_stub = cast(Any, types.ModuleType('mpv'))
     mpv_stub.MPV = object  # type: ignore[attr-defined]
     sys.modules.setdefault('mpv', mpv_stub)
@@ -37,13 +34,11 @@ async def test_ping_endpoint() -> None:
     # Import make_app lazily after the mpv stub is in place.
     from cuebeam.web.app import make_app
 
-    # Cast our dummy manager to Any to satisfy static type checking; the methods we use are compatible.
+    # Build the application and client synchronously using FastAPI's TestClient.
     app = make_app(cast(Any, DummyManager()))
+    client = TestClient(app)
 
-    # Construct the client separately and ignore the call-arg type error for the ``app`` keyword.
-    client = AsyncClient(app=app, base_url="http://test")  # type: ignore[call-arg]
-    async with client:
-        response = await client.get("/api/ping")
-        assert response.status_code == 200
-        # Accept either {'ok': True} or {'result': 'ok'} for backward compatibility
-        assert response.json() in ({"ok": True}, {"result": "ok"})
+    response = client.get("/api/ping")
+    assert response.status_code == 200
+    # Accept either {'ok': True} or {'result': 'ok'} for backward compatibility
+    assert response.json() in ({"ok": True}, {"result": "ok"})
