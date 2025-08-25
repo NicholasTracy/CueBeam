@@ -34,11 +34,14 @@ class DummyManager:
 
     cfg = {}
 
-@
-pytest.mark.asyncio
+
+
+   
+    a@pytest.mark.asyncio
 async def test_ping_endpoint():
-    app = make_app(DummyManager())
+        app = make_app(DummyManager())
     async with AsyncClient(app=app, base_url="http://test") as client:
+    
         response = await client.get("/api/ping")
         assert response.status_code == 200
         assert response.json() == {"ok": True}
