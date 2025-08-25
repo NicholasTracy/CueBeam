@@ -88,10 +88,16 @@ def make_app(manager: PlaybackManager) -> FastAPI:
 
         dest_dir = PROJECT_ROOT / "media" / target
         dest_dir.mkdir(parents=True, exist_ok=True)
-        # Sanitize filename
+        # Sanitize filename and ensure extension is allowed
         # ``UploadFile.filename`` may be ``None``, so fall back to empty string to satisfy type check
         safe_name = Path(file.filename or "").name
         dest_path = dest_dir / safe_name
+        # Validate file extension – allow common video formats
+        allowed_ext = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".mpg", ".mpeg", ".ogg"}
+        if dest_path.suffix.lower() not in allowed_ext:
+            # Close the file handle and redirect with error message
+            await file.close()
+            return RedirectResponse(url="/?msg=invalidfile", status_code=303)
         try:
             with dest_path.open("wb") as out_f:
                 content = await file.read()
