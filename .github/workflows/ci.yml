@@ -17,6 +17,7 @@ jobs:
           python -m pip install -U pip
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+                pip install -e .
           python -m pip install flake8 mypy pytest types-ujson types-PyYAML || true
       - name: Show versions
         run: |
