@@ -35,8 +35,6 @@ class DummyManager:
     cfg = {}
 
 
-
-   
     a@pytest.mark.asyncio
 async def test_ping_endpoint():
         app = make_app(DummyManager())
