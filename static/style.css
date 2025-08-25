@@ -119,6 +119,24 @@ pre{
   table-layout: fixed;
   margin: 0.2rem 0;
 }
+
+/* Device list and rows for Bluetooth page */
+.device-list{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.device-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #333;
+  font-size: 1rem;
+}
+.device-row:last-child{
+  border-bottom: none;
+}
 .stat-table th,
 .stat-table td{
   padding: 0.25rem 0.5rem;

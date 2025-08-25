@@ -3,41 +3,67 @@
 <link rel="stylesheet" href="/static/style.css"></head>
 <body>
 <div class="container">
-<h1>Bluetooth</h1>
-<p><button id="scan">Scan</button></p>
-<div id="scanout">(no scan yet)</div>
-<h3>Previously seen</h3>
-<ul>
-  {% for d in paired %}
-    <li>{{ d.name }} ({{ d.mac }})</li>
-  {% endfor %}
-</ul>
-<p><a href="/">Back</a></p>
+  <h1>Bluetooth</h1>
+
+  <!-- Scan section -->
+  <div class="card">
+    <h3>Scan for Devices</h3>
+    <p style="text-align:center"><button id="scan">Scan</button></p>
+    <!-- List of discovered devices will be rendered here -->
+    <div id="scanout" class="device-list"><em>No scan yet</em></div>
+  </div>
+
+  <!-- Previously seen devices -->
+  <div class="card">
+    <h3>Previously Seen</h3>
+    <div class="device-list">
+      {% for d in paired %}
+        <div class="device-row">{{ d.name }} ({{ d.mac }})</div>
+      {% endfor %}
+      {% if paired|length == 0 %}
+        <div class="device-row"><em>None</em></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <p style="text-align:center"><a href="/">Back</a></p>
 </div>
+
 <script>
 const out = document.getElementById('scanout');
 document.getElementById('scan').onclick = async () => {
-  out.textContent = 'Scanning…';
-  const r = await fetch('/bt/scan_json');
-  const j = await r.json();
-  if(!j.ok){ out.textContent = 'Scan failed: '+(j.error||''); return; }
-  out.innerHTML = '';
-  j.devices.forEach(d => {
-    const li = document.createElement('div');
-    const btn = document.createElement('button');
-    btn.textContent = 'Connect';
-    btn.onclick = async () => {
-      const fd = new FormData();
-      fd.append('mac', d.mac);
-      fd.append('save_as_preferred', 'on');
-      const r2 = await fetch('/bt/connect_json', { method:'POST', body:fd });
-      const j2 = await r2.json();
-      alert(j2.ok ? 'Connected' : ('Failed: ' + (j2.error||'')));
-    };
-    li.textContent = d.name+' ('+d.mac+') ';
-    li.appendChild(btn);
-    out.appendChild(li);
-  });
+  // Show scanning status
+  out.innerHTML = '<em>Scanning…</em>';
+  try {
+    const r = await fetch('/bt/scan_json');
+    const j = await r.json();
+    if(!j.ok){ out.innerHTML = '<em>Scan failed: '+(j.error||'')+'</em>'; return; }
+    // Clear previous results
+    out.innerHTML = '';
+    if(j.devices.length === 0){
+      out.innerHTML = '<em>No devices found</em>';
+      return;
+    }
+    j.devices.forEach(d => {
+      const row = document.createElement('div');
+      row.classList.add('device-row');
+      const btn = document.createElement('button');
+      btn.textContent = 'Connect';
+      btn.onclick = async () => {
+        const fd = new FormData();
+        fd.append('mac', d.mac);
+        fd.append('save_as_preferred', 'on');
+        const r2 = await fetch('/bt/connect_json', { method:'POST', body:fd });
+        const j2 = await r2.json();
+        alert(j2.ok ? 'Connected' : ('Failed: ' + (j2.error||'')));
+      };
+      row.textContent = d.name+' ('+d.mac+')';
+      row.appendChild(btn);
+      out.appendChild(row);
+    });
+  } catch (err) {
+    out.innerHTML = '<em>Scan error</em>';
+  }
 };
 </script>
 </body></html>

@@ -368,35 +368,51 @@ class PlaybackManager:
             return True
 
     def trigger_random(self) -> bool:
-        """Inject a random clip into the playlist.
+        """Inject a random clip into the playlist and return to idle.
 
-        Returns ``True`` if a clip was injected, otherwise ``False``.
+        When called, a random clip from the ``random`` folder is played
+        immediately.  Once it finishes, an idle clip will play once and
+        then playback stops.  The background idle monitor will restart
+        looping idle playback afterwards.  Returns ``True`` if a clip
+        was injected, otherwise ``False``.
         """
         with self._lock:
+            # Select a random clip to play
             rnd = self._random_file(RANDOM_DIR)
             if not rnd:
                 return False
-            lst = self._read_m3u()
-            if not lst:
-                return False
+            # Pick a random idle clip to follow the random clip
             idle = self._random_file(IDLE_DIR)
-            # Insert random clip after the currently playing idle, then return to idle
-            newlst: List[str] = [lst[0], str(rnd)]
+            # Build the playlist written to current.m3u: random then idle
+            newlst: List[str] = [str(rnd)]
             if idle:
                 newlst.append(str(idle))
             else:
                 logger.warning("No idle files available after random")
+            # Update the on-disk playlist for UI display
             self._write_m3u(newlst)
-            # Rebuild mpv playlist and keep playing current idle until it ends
-            self._rebuild_mpv_playlist(newlst)
-            # Disable looping for the event/random playlist
+            # Replace current playback with the random clip and append idle
             try:
-                self.mpv.command("set_property", "loop-playlist", "no")
-            except Exception:
+                # Clear existing playlist and load random clip immediately
+                self.mpv.command("playlist-clear")
+                # Use 'replace' to start the random clip at once
+                self.mpv.command("loadfile", str(rnd), "replace")
+                # Append the idle clip so that it plays after the random clip
+                if idle:
+                    self.mpv.command("loadfile", str(idle), "append-play")
+                # Disable playlist looping so that playback stops after idle
                 try:
-                    self.mpv.command("set", "loop-playlist", "no")
+                    self.mpv.command("set_property", "loop-playlist", "no")
                 except Exception:
-                    pass
+                    try:
+                        self.mpv.command("set", "loop-playlist", "no")
+                    except Exception:
+                        pass
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to inject random clip: %s", exc)
+                return False
+            # Record the injection timestamp; random mode will be toggled
+            # automatically via the path observer when the random clip starts
             self._state["last_random_injected_ts"] = float(time.time())
             return True
 
