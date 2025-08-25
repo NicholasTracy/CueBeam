@@ -2,6 +2,8 @@ import pytest
 from httpx import AsyncClient
 from cuebeam.web.app import make_app
 
+
+
 class DummyManager:
     def status(self):
         return {}
@@ -32,7 +34,8 @@ class DummyManager:
 
     cfg = {}
 
-@pytest.mark.asyncio
+@
+pytest.mark.asyncio
 async def test_ping_endpoint():
     app = make_app(DummyManager())
     async with AsyncClient(app=app, base_url="http://test") as client:
