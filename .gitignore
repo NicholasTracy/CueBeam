@@ -3,8 +3,10 @@ __pycache__/
 .venv/
 *.log
 /media/*
-!/media/idle/
-!/media/events/
-!/media/random/
+# Previously we re‑included specific media folders (idle, events, random) so they were tracked.
+# To avoid committing uploaded media clips at all, remove those exceptions.
 /playlists/*
-!/playlists/current.m3u
+# Ignore the generated current playlist, do not track it
+
+# Ignore the virtual environment created in the project root
+venv/
