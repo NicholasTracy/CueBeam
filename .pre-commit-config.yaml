@@ -1,43 +1,33 @@
 repos:
-  # Quick hygiene checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-      - id: check-merge-conflict
-      - id: end-of-file-fixer
       - id: trailing-whitespace
-      - id: mixed-line-ending
+      - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: mixed-line-ending
+      - id: detect-private-key
 
-  # Optional: spelling pass for comments/strings (tweak excludes as needed)
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
       - id: codespell
+        args: [--ignore-words-list=fo,ba]
         additional_dependencies: []
-        args: [--quiet-level=2, --ignore-words-list=crate,fo]
-        exclude: >
-          (?x)(
-            ^.github/|
-            ^media/|
-            ^logs/|
-            ^playlists/
-          )
 
-  # Style/lint – respects your existing setup.cfg (flake8: max-line-length=100)
-  - repo: https://github.com/PyCQA/flake8
+  # Keep using flake8 (CI uses it) with the project setup.cfg
+  - repo: https://github.com/pycqa/flake8
     rev: 7.1.1
     hooks:
       - id: flake8
 
-  # Static typing
+  # Run mypy via pre-commit to catch type issues locally as well
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.11.2
     hooks:
       - id: mypy
         additional_dependencies:
-          - types-PyYAML
           - types-ujson
-        args: [--ignore-missing-imports, --install-types, --non-interactive]
-        # Locks language version used by the hook
-        language_version: python3.11
+          - types-PyYAML
