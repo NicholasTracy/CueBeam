@@ -5,3 +5,4 @@ types-PyYAML
 pytest
 fastapi
 httpx
+pytest-asyncio
