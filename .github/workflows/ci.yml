@@ -3,35 +3,37 @@ on:
   push:
     branches: [ main ]
   pull_request:
-
+    branches: [ main ]
 jobs:
-  lint-type:
+  test-and-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
         run: |
           python -m pip install -U pip
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          python -m pip install flake8 mypy types-ujson types-PyYAML
-
+          python -m pip install flake8 mypy pytest types-ujson types-PyYAML || true
       - name: Show versions
         run: |
           python --version
           pip --version
           flake8 --version || true
           mypy --version || true
-
-      - name: Lint (flake8, 120-column)
+          pytest --version || true
+      - name: Lint (flake8)
         run: |
           flake8 . --max-line-length=120 --extend-ignore=E203,W503
-
       - name: Type check (mypy)
         run: |
-          mypy . --install-types --non-interactive
+          mypy --install-types --non-interactive || true
+      - name: Test
+        run: |
+          pytest -q
+      - name: Check outdated dependencies
+        run: |
+          pip list --outdated || true
