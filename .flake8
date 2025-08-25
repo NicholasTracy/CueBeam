@@ -14,3 +14,6 @@ exclude =
     node_modules,
     static,
     templates
+
+per-file-ignores =
+    tests/test_app.py:E302
