@@ -27,7 +27,11 @@ async def test_ping_endpoint() -> None:
     """Verify that the /api/ping endpoint returns 200 and {'ok': True} JSON."""
     # Inject a stub ``mpv`` module before importing cuebeam.web.app.  This prevents an ImportError
     # when the underlying libmpv is not available in the test environment.
-    sys.modules.setdefault('mpv', types.SimpleNamespace(MPV=object))
+    # Create a dummy module using ModuleType to satisfy the static type checker.  Using ModuleType
+    # rather than SimpleNamespace avoids a mypy error on the type of the second argument to setdefault.
+    mpv_stub = types.ModuleType('mpv')
+    mpv_stub.MPV = object
+    sys.modules.setdefault('mpv', mpv_stub)
 
     # Import make_app lazily after the mpv stub is in place.
     from cuebeam.web.app import make_app
