@@ -72,7 +72,9 @@ def pair_trust_connect(mac: str, pin: str | None = None) -> bool:
     try:
         child = pexpect.spawn("bluetoothctl", encoding="utf-8", timeout=30)
         # Wait for initial prompt
-        child.expect(["#", "\$", pexpect.TIMEOUT, pexpect.EOF])
+        # Match prompts from bluetoothctl.  Use raw strings to avoid invalid
+        # escape sequence warnings (W605) for backslash characters.
+        child.expect([r"#", r"\$", pexpect.TIMEOUT, pexpect.EOF])
         child.sendline("power on")
         child.sendline("agent KeyboardOnly")
         child.sendline("default-agent")

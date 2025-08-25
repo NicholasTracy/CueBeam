@@ -257,7 +257,11 @@ class PlaybackManager:
                         if prev_random and prev_path and prev_path.startswith(str(RANDOM_DIR)):
                             # Random clip finished
                             self._state["last_random_injected_ts"] = float(time.time())
-                        elif prev_path and not prev_path.startswith(str(IDLE_DIR)) and not prev_path.startswith(str(RANDOM_DIR)):
+                        elif (
+                            prev_path
+                            and not prev_path.startswith(str(IDLE_DIR))
+                            and not prev_path.startswith(str(RANDOM_DIR))
+                        ):
                             # Event clip finished
                             self._state["last_event_ts"] = float(time.time())
         except AttributeError:
@@ -284,7 +288,11 @@ class PlaybackManager:
                             if cur.startswith(str(IDLE_DIR)):
                                 if prev_random and prev_path and prev_path.startswith(str(RANDOM_DIR)):
                                     self._state["last_random_injected_ts"] = float(time.time())
-                                elif prev_path and not prev_path.startswith(str(IDLE_DIR)) and not prev_path.startswith(str(RANDOM_DIR)):
+                                elif (
+                                    prev_path
+                                    and not prev_path.startswith(str(IDLE_DIR))
+                                    and not prev_path.startswith(str(RANDOM_DIR))
+                                ):
                                     self._state["last_event_ts"] = float(time.time())
                         last = cur
                     time.sleep(0.5)
